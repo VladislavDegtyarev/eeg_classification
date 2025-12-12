@@ -23,7 +23,6 @@ scheduler:
     factor: 0.3
     min_lr: 1.0e-9
     patience: 10
-    verbose: True
   extras:
     monitor: ${replace:"__metric__/valid"}
     interval: "epoch"

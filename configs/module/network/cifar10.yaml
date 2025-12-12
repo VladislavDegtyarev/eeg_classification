@@ -1,0 +1,37 @@
+model:
+  _target_: src.modules.models.cifar_net.CIFARNet
+  input_channels: 3
+  num_classes: 10
+  dropout_rate: 0.2
+
+loss:
+  _target_: torch.nn.CrossEntropyLoss
+
+metrics:
+  main:
+    _target_: torchmetrics.Accuracy
+    task: multiclass
+    num_classes: 10
+    top_k: 1
+  valid_best:
+    _target_: torchmetrics.MaxMetric
+  additional:
+    f1:
+      _target_: torchmetrics.F1Score
+      task: multiclass
+      num_classes: 10
+      average: macro
+    precision:
+      _target_: torchmetrics.Precision
+      task: multiclass
+      num_classes: 10
+      average: macro
+    recall:
+      _target_: torchmetrics.Recall
+      task: multiclass
+      num_classes: 10
+      average: macro
+
+output_activation:
+  _target_: torch.softmax
+  dim: 1

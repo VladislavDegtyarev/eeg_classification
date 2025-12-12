@@ -1,0 +1,80 @@
+_target_: src.datamodules.cifar10_datamodule.CIFAR10DataModule
+
+datasets:
+  data_dir: ${paths.data_dir}
+  train_val_test_split: null  # Use default CIFAR-10 split
+  seed: 42
+
+transforms:
+  train:
+    order:
+      - random_crop
+      - random_horizontal_flip
+      - color_jitter
+      - cutout
+      - normalize
+    random_crop:
+      _target_: albumentations.RandomCrop
+      height: 32
+      width: 32
+      p: 1.0
+    random_horizontal_flip:
+      _target_: albumentations.HorizontalFlip
+      p: 0.5
+    color_jitter:
+      _target_: albumentations.ColorJitter
+      brightness: 0.2
+      contrast: 0.2
+      saturation: 0.2
+      hue: 0.1
+      p: 0.8
+    cutout:
+      _target_: albumentations.CoarseDropout
+      max_holes: 1
+      max_height: 8
+      max_width: 8
+      min_holes: 1
+      min_height: 4
+      min_width: 4
+      fill_value: [0.4914, 0.4822, 0.4465]  # CIFAR-10 mean
+      p: 0.5
+    normalize:
+      _target_: albumentations.Normalize
+      mean: [0.4914, 0.4822, 0.4465]  # CIFAR-10 mean
+      std: [0.2023, 0.1994, 0.2010]   # CIFAR-10 std
+      p: 1.0
+
+  valid_test_predict:
+    order:
+      - normalize
+    normalize:
+      _target_: albumentations.Normalize
+      mean: [0.4914, 0.4822, 0.4465]  # CIFAR-10 mean
+      std: [0.2023, 0.1994, 0.2010]   # CIFAR-10 std
+      p: 1.0
+
+loaders:
+  train:
+    batch_size: 128
+    shuffle: true
+    num_workers: 4
+    drop_last: true
+    pin_memory: true
+  valid:
+    batch_size: 128
+    shuffle: false
+    num_workers: 4
+    drop_last: false
+    pin_memory: true
+  test:
+    batch_size: 128
+    shuffle: false
+    num_workers: 4
+    drop_last: false
+    pin_memory: true
+  predict:
+    batch_size: 128
+    shuffle: false
+    num_workers: 4
+    drop_last: false
+    pin_memory: true

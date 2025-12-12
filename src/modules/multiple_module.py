@@ -100,7 +100,7 @@ class MultipleLitModule(BaseLitModule):
         )
         return {"loss": loss}
 
-    def training_epoch_end(self, outputs: List[Any]) -> None:
+    def on_train_epoch_end(self) -> None:
         pass
 
     def validation_step(
@@ -122,7 +122,7 @@ class MultipleLitModule(BaseLitModule):
         self.total_valid_metric.update(preds, targets)
         return {"loss": loss}
 
-    def validation_epoch_end(self, outputs: List[Any]) -> None:
+    def on_validation_epoch_end(self) -> None:
         total_valid_metric = self.total_valid_metric.compute()
         self.total_valid_metric_best(total_valid_metric)
         self.log(
@@ -149,7 +149,7 @@ class MultipleLitModule(BaseLitModule):
         self.log_metrics("test", head, preds, targets)
         return {"loss": loss}
 
-    def test_epoch_end(self, outputs: List[Any]) -> None:
+    def on_test_epoch_end(self) -> None:
         pass
 
     def predict_step(

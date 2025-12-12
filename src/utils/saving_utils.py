@@ -87,7 +87,7 @@ def save_state_dicts(
     else:
         log.warning("Best ckpt score not found! Use prefix <unknown>!")
         prefix = "unknown"
-    model = model.load_from_checkpoint(best_ckpt_path)
+    model = model.__class__.load_from_checkpoint(best_ckpt_path)
     mapped_state_dict = process_state_dict(
         model.state_dict(), symbols=symbols, exceptions=exceptions
     )

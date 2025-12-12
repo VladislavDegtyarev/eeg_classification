@@ -103,14 +103,10 @@ class SingleLitModule(BaseLitModule):
         # during training step. Keep it in mind.
         return {"loss": loss}
 
-    def training_epoch_end(self, outputs: List[Any]) -> None:
-        # `outputs` is a list of dicts returned from `training_step()`
-
-        # Warning: when overriding `training_epoch_end()`, lightning
-        # accumulates outputs from all batches of the epoch
-
-        # consider detaching tensors before returning them from `training_step()`
-        # or using `on_train_epoch_end()` instead which doesn't accumulate outputs
+    def on_train_epoch_end(self) -> None:
+        # This method is called at the end of each training epoch
+        # Note: outputs are no longer passed as parameter in v2.0+
+        # If you need outputs, save them as instance attributes in training_step
         pass
 
     def validation_step(self, batch: Any, batch_idx: int) -> Any:
@@ -132,7 +128,7 @@ class SingleLitModule(BaseLitModule):
         self.log_dict(self.valid_add_metrics, **self.logging_params)
         return {"loss": loss}
 
-    def validation_epoch_end(self, outputs: List[Any]) -> None:
+    def on_validation_epoch_end(self) -> None:
         valid_metric = self.valid_metric.compute()  # get current valid metric
         self.valid_metric_best(valid_metric)  # update best so far valid metric
         # log `valid_metric_best` as a value through `.compute()` method, instead
@@ -161,7 +157,7 @@ class SingleLitModule(BaseLitModule):
         self.log_dict(self.test_add_metrics, **self.logging_params)
         return {"loss": loss}
 
-    def test_epoch_end(self, outputs: List[Any]) -> None:
+    def on_test_epoch_end(self) -> None:
         pass
 
     def predict_step(
@@ -258,7 +254,7 @@ class SingleVicRegLitModule(BaseLitModule):
         )
         return {"loss": loss}
 
-    def training_epoch_end(self, outputs: List[Any]) -> None:
+    def on_train_epoch_end(self) -> None:
         pass
 
     def validation_step(self, batch: Any, batch_idx: int) -> Any:
@@ -270,7 +266,7 @@ class SingleVicRegLitModule(BaseLitModule):
         )
         return {"loss": loss}
 
-    def validation_epoch_end(self, outputs: List[Any]) -> None:
+    def on_validation_epoch_end(self) -> None:
         pass
 
     def test_step(self, batch: Any, batch_idx: int) -> Any:
@@ -280,7 +276,7 @@ class SingleVicRegLitModule(BaseLitModule):
         )
         return {"loss": loss}
 
-    def test_epoch_end(self, outputs: List[Any]) -> None:
+    def on_test_epoch_end(self) -> None:
         pass
 
 

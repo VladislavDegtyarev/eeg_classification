@@ -5,7 +5,7 @@ import os
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from pytorch_lightning.callbacks import ProgressBarBase
+from pytorch_lightning.callbacks import ProgressBar
 
 
 def n_lines(text: str) -> int:
@@ -276,7 +276,7 @@ class TimeEstimator:
         return f"[{elapsed}>{eta}]"
 
 
-class LightProgressBar(ProgressBarBase):
+class LightProgressBar(ProgressBar):
     def __init__(self) -> None:
         super().__init__()
         self.last_epoch = 0

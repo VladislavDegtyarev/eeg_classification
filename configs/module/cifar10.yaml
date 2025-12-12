@@ -1,0 +1,37 @@
+_target_: src.modules.cifar10_module.CIFAR10LitModule
+
+# this config file is used for CIFAR-10 training
+
+# To avoiding copying of loss and metric names, during hydra initialization
+# there is custom resolver which replaces __loss__ to loss.__class__.__name__
+# and __metric__ to main_metric.__class__.__name__,
+# for example: ${replace:"__metric__/valid"}
+# Use quotes for defining internal value in ${replace:"..."} to avoid
+# grammar problems with hydra config parser.
+
+defaults:
+  - _self_
+  - network: cifar10.yaml
+
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 0.001
+  weight_decay: 1e-4
+
+scheduler:
+  scheduler:
+    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+    mode: "max"
+    factor: 0.5
+    min_lr: 1.0e-6
+    patience: 5
+  extras:
+    monitor: MulticlassAccuracy/valid
+    interval: "epoch"
+    frequency: 1
+
+logging:
+  on_step: False
+  on_epoch: True
+  sync_dist: False
+  prog_bar: True

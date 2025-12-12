@@ -1,0 +1,115 @@
+# @package _global_
+
+defaults:
+  - _self_
+  - datamodule: cifar10
+  - module: cifar10
+  - trainer: gpu
+  - callbacks: default
+  - logger: csv  # Use CSV logger by default for simplicity
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+# the default experiment tags
+tags: ["cifar10", "cnn", "classification", "optimized"]
+
+# name of the experiment
+name: "cifar10-cnn-optimized"
+
+# metric to optimize
+optimized_metric: "MulticlassAccuracy/valid"
+
+# enable training and testing
+train: true
+test: true
+
+# path to the root directory
+paths:
+  root_dir: .
+  data_dir: ${paths.root_dir}/data
+  log_dir: ${paths.root_dir}/logs
+  output_dir: ${paths.root_dir}/logs/train/runs/${now:%Y-%m-%d_%H-%M-%S}
+  work_dir: ${paths.root_dir}
+
+# training parameters - optimized for better performance
+trainer:
+  max_epochs: 50  # Increased for better convergence
+  min_epochs: 5
+  accelerator: gpu
+  devices: 1
+  precision: 16-mixed  # Use mixed precision for better performance
+  gradient_clip_val: 1.0  # Gradient clipping for stability
+  accumulate_grad_batches: 1
+  log_every_n_steps: 50  # Log more frequently
+
+# model parameters - optimized for CIFAR-10
+module:
+  optimizer:
+    lr: 0.01  # Higher learning rate for faster convergence
+    weight_decay: 5e-4  # Increased weight decay for regularization
+    betas: [0.9, 0.999]
+  scheduler:
+    scheduler:
+      _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+      mode: "max"
+      factor: 0.5
+      min_lr: 1.0e-6
+      patience: 5
+    extras:
+      monitor: MulticlassAccuracy/valid
+      interval: "epoch"
+      frequency: 1
+
+# datamodule parameters - optimized for performance
+datamodule:
+  loaders:
+    train:
+      batch_size: 256  # Larger batch size for better gradient estimates
+      num_workers: 8
+      shuffle: true
+      drop_last: true
+      pin_memory: true
+    valid:
+      batch_size: 256
+      num_workers: 8
+      shuffle: false
+      drop_last: false
+      pin_memory: true
+    test:
+      batch_size: 256
+      num_workers: 8
+      shuffle: false
+      drop_last: false
+      pin_memory: true
+
+# callbacks - optimized for better training
+callbacks:
+  model_checkpoint:
+    monitor: MulticlassAccuracy/valid
+    mode: max
+    save_top_k: 5  # Save more checkpoints
+    every_n_epochs: 1
+    save_last: true
+    filename: "epoch{epoch:03d}-val_acc{MulticlassAccuracy/valid:.4f}"
+  early_stopping:
+    monitor: MulticlassAccuracy/valid
+    mode: max
+    patience: 15  # More patience for better convergence
+    min_delta: 0.001
+    verbose: true
+  learning_rate_monitor:
+    _target_: pytorch_lightning.callbacks.LearningRateMonitor
+    logging_interval: epoch
+
+# logger - CSV for simplicity
+logger:
+  csv:
+    name: "cifar10-cnn-optimized"
+    version: ""
+
+# extras - disable problematic features
+extras:
+  enforce_tags: false
+  print_config: false
+  ignore_warnings: true
