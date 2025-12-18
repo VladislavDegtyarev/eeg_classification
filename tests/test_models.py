@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 import hydra
 import omegaconf
@@ -12,14 +12,14 @@ from src.modules.models.module import (
 )
 
 _MODULE_SOURCE = (
-    {"model_name": "torchvision.models/resnet18", "weights": None},
-    {"model_name": "timm/tf_efficientnetv2_s", "pretrained": False},
+    {'model_name': 'torchvision.models/resnet18', 'weights': None},
+    {'model_name': 'timm/tf_efficientnetv2_s', 'pretrained': False},
     {
-        "model_name": "segmentation_models_pytorch/DeepLabV3Plus",
-        "encoder_name": "resnet34",
-        "encoder_weights": None,
-        "in_channels": 3,
-        "classes": 10,
+        'model_name': 'segmentation_models_pytorch/DeepLabV3Plus',
+        'encoder_name': 'resnet34',
+        'encoder_weights': None,
+        'in_channels': 3,
+        'classes': 10,
     },
     # In pytest torch.hub.load does not work correct when torchvision is installed
     # https://discuss.pytorch.org/t/problem-with-loading-models-from-torch-hub-pytorch-vision-in-pytest/170320
@@ -32,19 +32,19 @@ _MODULE_SOURCE = (
 
 _REID_PARAMS = (
     {
-        "head_type": "fc",
-        "embedding_size": 128,
-        "proj_hidden_dim": 2880,
-        "kernel_size": [5, 7],
+        'head_type': 'fc',
+        'embedding_size': 128,
+        'proj_hidden_dim': 2880,
+        'kernel_size': [5, 7],
     },
-    {"head_type": "gem", "p": 3},
+    {'head_type': 'gem', 'p': 3},
 )
 
 
-@pytest.mark.parametrize("model_source_params", _MODULE_SOURCE)
-def test_base_module(model_source_params: Dict[str, Any]):
+@pytest.mark.parametrize('model_source_params', _MODULE_SOURCE)
+def test_base_module(model_source_params: dict[str, Any]):
     cfg = {
-        "_target_": "src.modules.models.module.BaseModule",
+        '_target_': 'src.modules.models.module.BaseModule',
         **model_source_params,
     }
     cfg = omegaconf.OmegaConf.create(cfg)
@@ -78,7 +78,7 @@ def test_classifier(num_classes: int):
 
 
 @pytest.mark.parametrize("num_classes", [[92, 4, 7], [1, 4], [10]])
-def test_classifier_multiple_head(num_classes: List[int]):
+def test_classifier_multiple_head(num_classes: list[int]):
     cfg = {
         "_target_": "src.modules.models.classification.ClassifierMultipleHead",
         "model_name": "torchvision.models/resnext50_32x4d",
@@ -102,7 +102,7 @@ def test_classifier_multiple_head(num_classes: List[int]):
     assert all(statements)
 
 
-def test_backbone_vicreg(model_name: str = "resnet18"):
+def test_backbone_vicreg(model_name: str = 'resnet18'):
     cfg = {
         "_target_": "src.modules.models.classification.BackboneVicReg",
         "model_name": f"torchvision.models/{model_name}",
@@ -117,7 +117,7 @@ def test_backbone_vicreg(model_name: str = "resnet18"):
 
 
 @pytest.mark.parametrize("params", _REID_PARAMS)
-def test_reidentificator(params: Dict[str, Any]):
+def test_reidentificator(params: dict[str, Any]):
     cfg = {
         "_target_": "src.modules.models.reidentification.ReIdentificator",
         "model_name": "torchvision.models/mobilenet_v3_large",

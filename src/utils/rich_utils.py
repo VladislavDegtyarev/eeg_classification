@@ -18,37 +18,36 @@ log = pylogger.get_pylogger(__name__)
 def print_config_tree(
     cfg: DictConfig,
     print_order: Sequence[str] = (
-        "datamodule",
-        "module",
-        "callbacks",
-        "logger",
-        "trainer",
-        "paths",
-        "extras",
+        'datamodule',
+        'module',
+        'callbacks',
+        'logger',
+        'trainer',
+        'paths',
+        'extras',
     ),
     resolve: bool = False,
     save_to_file: bool = False,
 ) -> None:
     """Prints content of DictConfig using Rich library and its tree structure.
 
-    Args:
-        cfg (DictConfig): Configuration composed by Hydra.
-        print_order (Sequence[str], optional): Determines in what order config
-            components are printed.
-        resolve (bool, optional): Whether to resolve reference fields of
-            DictConfig.
-        save_to_file (bool, optional): Whether to export config to the hydra
-            output folder.
+    :param cfg: Configuration composed by Hydra.
+    :param print_order: Determines in what order config
+        components are printed.
+    :param resolve: Whether to resolve reference fields of
+        DictConfig.
+    :param save_to_file: Whether to export config to the hydra
+        output folder.
     """
-    style = "dim"
-    tree = rich.tree.Tree("CONFIG", style=style, guide_style=style)
+    style = 'dim'
+    tree = rich.tree.Tree('CONFIG', style=style, guide_style=style)
 
     queue = []
 
     # add fields from `print_order` to queue
     for field in print_order:
         queue.append(field) if field in cfg else log.warning(
-            f"Field '{field}' not found in config. Skipping '{field}' config printing..."
+            f'Field \'{field}\' not found in config. Skipping \'{field}\' config printing...'
         )
 
     # add all the other fields to queue (not specified in `print_order`)
@@ -66,38 +65,42 @@ def print_config_tree(
         else:
             branch_content = str(config_group)
 
-        branch.add(rich.syntax.Syntax(branch_content, "yaml"))
+        branch.add(rich.syntax.Syntax(branch_content, 'yaml'))
 
     # print config tree
     rich.print(tree)
 
     # save config tree to file
     if save_to_file:
-        with open(Path(cfg.paths.output_dir, "config_tree.log"), "w") as file:
+        with open(Path(cfg.paths.output_dir, 'config_tree.log'), 'w') as file:
             rich.print(tree, file=file)
 
 
 @rank_zero_only
 def enforce_tags(cfg: DictConfig, save_to_file: bool = False) -> None:
     """Prompts user to input tags from command line if no tags are provided in
-    config."""
-    if not cfg.get("tags"):
-        if "id" in HydraConfig().cfg.hydra.job:
-            raise ValueError("Specify tags before launching a multirun!")
+    config.
+
+    :param cfg: Configuration composed by Hydra.
+    :param save_to_file: Whether to save tags to file.
+    """
+    if not cfg.get('tags'):
+        if 'id' in HydraConfig().cfg.hydra.job:
+            raise ValueError('Specify tags before launching a multirun!')
 
         log.warning(
-            "No tags provided in config. Prompting user to input tags..."
+            'No tags provided in config. Prompting user to input tags...'
         )
         tags = Prompt.ask(
-            "Enter a list of comma separated tags", default="dev"
+            'Enter a list of comma separated tags', default='dev'
         )
-        tags = [t.strip() for t in tags.split(",") if t != ""]
+        tags = [t.strip() for t in tags.split(',') if t != '']
 
         with open_dict(cfg):
             cfg.tags = tags
 
-        log.info(f"Tags: {cfg.tags}")
+        log.info(f'Tags: {cfg.tags}')
 
     if save_to_file:
-        with open(Path(cfg.paths.output_dir, "tags.log"), "w") as file:
+        with open(Path(cfg.paths.output_dir, 'tags.log'), 'w') as file:
             rich.print(cfg.tags, file=file)

@@ -149,7 +149,6 @@ dmypy.json
 *.tar
 *.tar.gz
 
-# Lightning-Hydra-Template
 configs/local/default.yaml
 .env
 .autoenv

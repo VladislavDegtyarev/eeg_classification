@@ -1,6 +1,6 @@
 # --------- pytorch --------- #
-torch>=2.1.0
 torchvision>=0.16.0
+torch>=2.1.0
 pytorch-lightning>=2.1.0
 torchmetrics>=1.2.0
 
@@ -44,3 +44,4 @@ matplotlib>=3.7.0
 ipython>=8.15.0
 grad-cam>=1.4.0
 ttach>=0.0.3
+

@@ -11,19 +11,18 @@ class TransformsWrapper:
     def __init__(self, transforms_cfg: DictConfig) -> None:
         """TransformsWrapper module.
 
-        Args:
-            transforms_cfg (DictConfig): Transforms config.
+        :param transforms_cfg: Transforms config.
         """
 
         augmentations = []
-        if not transforms_cfg.get("order"):
+        if not transforms_cfg.get('order'):
             raise RuntimeError(
-                "TransformsWrapper requires param <order>, i.e."
-                "order of augmentations as List[augmentation name]"
+                'TransformsWrapper requires param <order>, i.e.'
+                'order of augmentations as List[augmentation name]'
             )
-        for augmentation_name in transforms_cfg.get("order"):
+        for augmentation_name in transforms_cfg.get('order'):
             augmentation = hydra.utils.instantiate(
-                transforms_cfg.get(augmentation_name), _convert_="object"
+                transforms_cfg.get(augmentation_name), _convert_='object'
             )
             augmentations.append(augmentation)
         self.augmentations = albumentations.Compose(augmentations)
@@ -31,12 +30,9 @@ class TransformsWrapper:
     def __call__(self, image: Any, **kwargs: Any) -> Any:
         """Apply TransformsWrapper module.
 
-        Args:
-            image (Any): Input image.
-            kwargs (Any): Additional arguments.
-
-        Returns:
-            Any: Transformation results.
+        :param image: Input image.
+        :param kwargs: Additional arguments.
+        :return: Transformation results.
         """
 
         if isinstance(image, Image.Image):

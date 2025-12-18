@@ -2,7 +2,7 @@ import argparse
 import warnings
 from functools import wraps
 from importlib.util import find_spec
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable
 
 import hydra
 from hydra import compose, initialize_config_dir
@@ -30,11 +30,8 @@ def task_wrapper(task_func: Callable) -> Callable:
     - Logging the exception if occurs
     - Logging the output dir
 
-    Args:
-        task_func (Callable): Task function.
-
-    Returns:
-        Callable: Decorator that wraps the task function in extra utilities.
+    :param task_func: Task function.
+    :return: Decorator that wraps the task function in extra utilities.
     """
 
     def wrap(cfg: DictConfig):
@@ -51,7 +48,7 @@ def task_wrapper(task_func: Callable) -> Callable:
         except Exception as ex:
 
             # save exception to `.log` file
-            log.exception("")
+            log.exception('')
 
             # when using hydra plugins like Optuna, you might want to disable
             # raising exception to avoid multirun failure
@@ -61,7 +58,7 @@ def task_wrapper(task_func: Callable) -> Callable:
         finally:
 
             # display output dir path in terminal
-            log.info(f"Output dir: {cfg.paths.output_dir}")
+            log.info(f'Output dir: {cfg.paths.output_dir}')
 
             # close loggers (even if exception occurs so multirun won't fail)
             close_loggers()
@@ -79,84 +76,77 @@ def extras(cfg: DictConfig) -> None:
     - Setting tags from command line
     - Rich config printing
 
-    Args:
-        cfg (DictConfig): Main config.
+    :param cfg: Main config.
     """
 
     # return if no `extras` config
-    if not cfg.get("extras"):
-        log.warning("Extras config not found! <cfg.extras=null>")
+    if not cfg.get('extras'):
+        log.warning('Extras config not found! <cfg.extras=null>')
         return
 
     # disable python warnings
-    if cfg.extras.get("ignore_warnings"):
+    if cfg.extras.get('ignore_warnings'):
         log.info(
-            "Disabling python warnings! <cfg.extras.ignore_warnings=True>"
+            'Disabling python warnings! <cfg.extras.ignore_warnings=True>'
         )
-        warnings.filterwarnings("ignore")
+        warnings.filterwarnings('ignore')
 
     # prompt user to input tags from command line if none are provided in the config
-    if cfg.extras.get("enforce_tags"):
-        log.info("Enforcing tags! <cfg.extras.enforce_tags=True>")
+    if cfg.extras.get('enforce_tags'):
+        log.info('Enforcing tags! <cfg.extras.enforce_tags=True>')
         rich_utils.enforce_tags(cfg, save_to_file=True)
 
     # pretty print config tree using Rich library
-    if cfg.extras.get("print_config"):
+    if cfg.extras.get('print_config'):
         log.info(
-            "Printing config tree with Rich! <cfg.extras.print_config=True>"
+            'Printing config tree with Rich! <cfg.extras.print_config=True>'
         )
         rich_utils.print_config_tree(cfg, resolve=True, save_to_file=True)
 
 
-def instantiate_callbacks(callbacks_cfg: DictConfig) -> List[Callback]:
+def instantiate_callbacks(callbacks_cfg: DictConfig) -> list[Callback]:
     """Instantiates callbacks from config.
 
-    Args:
-        callbacks_cfg (DictConfig): Callbacks config.
-
-    Returns:
-        List[Callback]: List with all instantiated callbacks.
+    :param callbacks_cfg: Callbacks config.
+    :return: List with all instantiated callbacks.
     """
 
-    callbacks: List[Callback] = []
+    callbacks: list[Callback] = []
 
     if not callbacks_cfg:
-        log.warning("No callback configs found! Skipping..")
+        log.warning('No callback configs found! Skipping..')
         return callbacks
 
     if not isinstance(callbacks_cfg, DictConfig):
-        raise TypeError("Callbacks config must be a DictConfig!")
+        raise TypeError('Callbacks config must be a DictConfig!')
 
     for _, cb_conf in callbacks_cfg.items():
-        if isinstance(cb_conf, DictConfig) and "_target_" in cb_conf:
-            log.info(f"Instantiating callback <{cb_conf._target_}>")
+        if isinstance(cb_conf, DictConfig) and '_target_' in cb_conf:
+            log.info(f'Instantiating callback <{cb_conf._target_}>')
             callbacks.append(hydra.utils.instantiate(cb_conf))
 
     return callbacks
 
 
-def instantiate_loggers(logger_cfg: DictConfig) -> List[Logger]:
+def instantiate_loggers(logger_cfg: DictConfig) -> list[Logger]:
     """Instantiates loggers from config.
 
-    Args:
-        logger_cfg (DictConfig): Loggers config.
-
-    Returns:
-        List[Logger]: List with all instantiated loggers.
+    :param logger_cfg: Loggers config.
+    :return: List with all instantiated loggers.
     """
 
-    logger: List[Logger] = []
+    logger: list[Logger] = []
 
     if not logger_cfg:
-        log.warning("No logger configs found! Skipping...")
+        log.warning('No logger configs found! Skipping...')
         return logger
 
     if not isinstance(logger_cfg, DictConfig):
-        raise TypeError("Logger config must be a DictConfig!")
+        raise TypeError('Logger config must be a DictConfig!')
 
     for _, lg_conf in logger_cfg.items():
-        if isinstance(lg_conf, DictConfig) and "_target_" in lg_conf:
-            log.info(f"Instantiating logger <{lg_conf._target_}>")
+        if isinstance(lg_conf, DictConfig) and '_target_' in lg_conf:
+            log.info(f'Instantiating logger <{lg_conf._target_}>')
             logger.append(hydra.utils.instantiate(lg_conf))
 
     return logger
@@ -169,71 +159,67 @@ def log_hyperparameters(object_dict: dict) -> None:
     Saves additionally:
     - Number of model parameters
 
-    Args:
-        object_dict (dict): Dict object with all parameters.
+    :param object_dict: Dict object with all parameters.
     """
 
     hparams = {}
 
-    cfg = object_dict["cfg"]
-    model = object_dict["model"]
-    trainer = object_dict["trainer"]
+    cfg = object_dict['cfg']
+    model = object_dict['model']
+    trainer = object_dict['trainer']
 
     if not trainer.logger:
-        log.warning("Logger not found! Skipping hyperparameter logging...")
+        log.warning('Logger not found! Skipping hyperparameter logging...')
         return
 
-    hparams["module"] = cfg["module"]
+    hparams['module'] = cfg['module']
 
     # save number of model parameters
-    hparams["module/params/total"] = sum(p.numel() for p in model.parameters())
-    hparams["module/params/trainable"] = sum(
+    hparams['module/params/total'] = sum(p.numel() for p in model.parameters())
+    hparams['module/params/trainable'] = sum(
         p.numel() for p in model.parameters() if p.requires_grad
     )
-    hparams["module/params/non_trainable"] = sum(
+    hparams['module/params/non_trainable'] = sum(
         p.numel() for p in model.parameters() if not p.requires_grad
     )
 
-    hparams["datamodule"] = cfg["datamodule"]
-    hparams["trainer"] = cfg["trainer"]
+    hparams['datamodule'] = cfg['datamodule']
+    hparams['trainer'] = cfg['trainer']
 
-    hparams["callbacks"] = cfg.get("callbacks")
-    hparams["extras"] = cfg.get("extras")
+    hparams['callbacks'] = cfg.get('callbacks')
+    hparams['extras'] = cfg.get('extras')
 
-    hparams["task_name"] = cfg.get("task_name")
-    hparams["tags"] = cfg.get("tags")
-    hparams["ckpt_path"] = cfg.get("ckpt_path")
-    hparams["seed"] = cfg.get("seed")
+    hparams['task_name'] = cfg.get('task_name')
+    hparams['tags'] = cfg.get('tags')
+    hparams['ckpt_path'] = cfg.get('ckpt_path')
+    hparams['seed'] = cfg.get('seed')
 
     # send hparams to all loggers
     for logger in trainer.loggers:
         logger.log_hyperparams(hparams)
 
 
-def get_metric_value(metric_dict: dict, metric_name: str) -> Optional[float]:
+def get_metric_value(metric_dict: dict, metric_name: str) -> float | None:
     """Safely retrieves value of the metric logged in LightningModule.
 
-    Args:
-        metric_dict (dict): Dict with metric values.
-        metric_name (str): Metric name.
-
-    Returns:
-        Optional[float]: Metric value.
+    :param metric_dict: Dict with metric values.
+    :param metric_name: Metric name.
+    :return: Metric value.
     """
 
     if not metric_name:
-        log.info("Metric name is None! Skipping metric value retrieval...")
+        log.info('Metric name is None! Skipping metric value retrieval...')
         return None
 
     if metric_name not in metric_dict:
         raise Exception(
-            f"Metric value not found! <metric_name={metric_name}>\n"
-            "Make sure metric name logged in LightningModule is correct!\n"
-            "Make sure `optimized_metric` name in `hparams_search` config is correct!"
+            f'Metric value not found! <metric_name={metric_name}>\n'
+            'Make sure metric name logged in LightningModule is correct!\n'
+            'Make sure `optimized_metric` name in `hparams_search` config is correct!'
         )
 
     metric_value = metric_dict[metric_name].item()
-    log.info(f"Retrieved metric value! <{metric_name}={metric_value}>")
+    log.info(f'Retrieved metric value! <{metric_name}={metric_value}>')
 
     return metric_value
 
@@ -242,13 +228,13 @@ def close_loggers() -> None:
     """Makes sure all loggers closed properly (prevents logging failure during
     multirun)."""
 
-    log.info("Closing loggers...")
+    log.info('Closing loggers...')
 
-    if find_spec("wandb"):  # if wandb is installed
+    if find_spec('wandb'):  # if wandb is installed
         import wandb
 
         if wandb.run:
-            log.info("Closing wandb!")
+            log.info('Closing wandb!')
             wandb.finish()
 
 
@@ -256,37 +242,33 @@ def close_loggers() -> None:
 def save_file(path: str, content: str) -> None:
     """Save file in rank zero mode (only on one process in multi-GPU setup).
 
-    Args:
-        path (str): File path.
-        content (str): File content.
+    :param path: File path.
+    :param content: File content.
     """
 
-    with open(path, "w+") as file:
+    with open(path, 'w+') as file:
         file.write(content)
 
 
-def instantiate_plugins(cfg: DictConfig) -> Optional[List[Any]]:
+def instantiate_plugins(cfg: DictConfig) -> list[Any] | None:
     """Instantiates lightning plugins from config.
 
-    Args:
-        cfg (DictConfig): Config.
-
-    Returns:
-        List[Any]: List with all instantiated plugins.
+    :param cfg: Config.
+    :return: List with all instantiated plugins.
     """
 
-    if not cfg.extras.get("plugins"):
-        log.warning("No plugins configs found! Skipping...")
+    if not cfg.extras.get('plugins'):
+        log.warning('No plugins configs found! Skipping...')
         return
 
-    if cfg.trainer.get("accelerator") == "cpu":
-        log.warning("Using CPU as accelerator! Skipping...")
+    if cfg.trainer.get('accelerator') == 'cpu':
+        log.warning('Using CPU as accelerator! Skipping...')
         return
 
-    plugins: List[Any] = []
-    for _, pl_conf in cfg.extras.get("plugins").items():
-        if isinstance(pl_conf, DictConfig) and "_target_" in pl_conf:
-            log.info(f"Instantiating plugin <{pl_conf._target_}>")
+    plugins: list[Any] = []
+    for _, pl_conf in cfg.extras.get('plugins').items():
+        if isinstance(pl_conf, DictConfig) and '_target_' in pl_conf:
+            log.info(f'Instantiating plugin <{pl_conf._target_}>')
             plugins.append(hydra.utils.instantiate(pl_conf))
 
     return plugins
@@ -295,32 +277,32 @@ def instantiate_plugins(cfg: DictConfig) -> Optional[List[Any]]:
 def get_args_parser() -> argparse.ArgumentParser:
     """Get parser for additional Hydra's command line flags."""
     parser = argparse.ArgumentParser(
-        description="Additional Hydra's command line flags parser."
+        description='Additional Hydra\'s command line flags parser.'
     )
 
     parser.add_argument(
-        "--config-path",
-        "-cp",
-        nargs="?",
+        '--config-path',
+        '-cp',
+        nargs='?',
         default=None,
-        help="""Overrides the config_path specified in hydra.main().
-                    The config_path is absolute or relative to the Python file declaring @hydra.main()""",
+        help='''Overrides the config_path specified in hydra.main().
+                    The config_path is absolute or relative to the Python file declaring @hydra.main()''',
     )
 
     parser.add_argument(
-        "--config-name",
-        "-cn",
-        nargs="?",
+        '--config-name',
+        '-cn',
+        nargs='?',
         default=None,
-        help="Overrides the config_name specified in hydra.main()",
+        help='Overrides the config_name specified in hydra.main()',
     )
 
     parser.add_argument(
-        "--config-dir",
-        "-cd",
-        nargs="?",
+        '--config-dir',
+        '-cd',
+        nargs='?',
         default=None,
-        help="Adds an additional config dir to the config search path",
+        help='Adds an additional config dir to the config search path',
     )
     return parser
 
@@ -338,14 +320,11 @@ def register_custom_resolvers(
     Use quotes for defining internal value in ${replace:"..."} to avoid grammar
     problems with hydra config parser.
 
-    Args:
-        version_base (str): Hydra version base.
-        config_path (str): Hydra config path.
-        config_name (str): Hydra config name.
-
-    Returns:
-        Callable: Decorator that registers custom resolvers before running
-            main function.
+    :param version_base: Hydra version base.
+    :param config_path: Hydra config path.
+    :param config_name: Hydra config name.
+    :return: Decorator that registers custom resolvers before running
+        main function.
     """
 
     # parse additional Hydra's command line flags
@@ -359,7 +338,7 @@ def register_custom_resolvers(
         config_name = args.config_name
 
     # register of replace resolver
-    if not OmegaConf.has_resolver("replace"):
+    if not OmegaConf.has_resolver('replace'):
         with initialize_config_dir(
             version_base=version_base, config_dir=config_path
         ):
@@ -372,10 +351,10 @@ def register_custom_resolvers(
         GlobalHydra.instance().clear()
 
         OmegaConf.register_new_resolver(
-            "replace",
+            'replace',
             lambda item: item.replace(
-                "__loss__", loss.__class__.__name__
-            ).replace("__metric__", metric.__class__.__name__),
+                '__loss__', loss.__class__.__name__
+            ).replace('__metric__', metric.__class__.__name__),
         )
 
     def decorator(function: Callable) -> Callable:

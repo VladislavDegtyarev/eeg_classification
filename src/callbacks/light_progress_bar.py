@@ -3,18 +3,18 @@ import datetime
 import math
 import os
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable
 
 from pytorch_lightning.callbacks import ProgressBar
 
 
 def n_lines(text: str) -> int:
-    return text.count("\n") + 1
+    return text.count('\n') + 1
 
 
 def text_color(
-    style: Optional[int] = None, color: Optional[int] = None
-) -> Tuple[str, str]:
+    style: int | None = None, color: int | None = None
+) -> tuple[str, str]:
     if color is None:
         color_code = 0
     else:
@@ -24,8 +24,8 @@ def text_color(
     else:
         style_code = style
     return (
-        "\033[" + str(style_code) + ";" + str(color_code) + "m",
-        "\033[" + str(0) + ";" + str(0) + "m",
+        '\033[' + str(style_code) + ';' + str(color_code) + 'm',
+        '\033[' + str(0) + ';' + str(0) + 'm',
     )
 
 
@@ -38,20 +38,20 @@ def format_status(inp: Any) -> Any:
             inp[index] = format_status(inp[index])
     elif isinstance(inp, int):
         if abs(inp) > 10**6:
-            return f"{inp:.3e}"
+            return f'{inp:.3e}'
         else:
-            return f"{inp:d}"
+            return f'{inp:d}'
     elif isinstance(inp, float):
         if abs(inp) > 10**6:
-            return f"{inp:.3e}"
+            return f'{inp:.3e}'
         elif abs(inp) < 10**-6:
-            return f"{inp:.3e}"
+            return f'{inp:.3e}'
         else:
-            return f"{inp:.6f}"
+            return f'{inp:.6f}'
     return inp
 
 
-def colorize_string(string: str, colors: List[Any], padding: int = 0) -> str:
+def colorize_string(string: str, colors: list[Any], padding: int = 0) -> str:
     substrings = []
     last_index = 0
     for color in colors:
@@ -60,12 +60,12 @@ def colorize_string(string: str, colors: List[Any], padding: int = 0) -> str:
         substrings.append(color[1])
         last_index = index
     substrings.append(string[last_index:])
-    return "".join(substrings)
+    return ''.join(substrings)
 
 
 def view_status(inp: Any, display_len: int = 80) -> str:
-    separator = " | "
-    strings = [""]
+    separator = ' | '
+    strings = ['']
     colors = [[]]
     color_index = 0
 
@@ -88,7 +88,7 @@ def view_status(inp: Any, display_len: int = 80) -> str:
                 start, end = text_color(style=3, color=color_index + 1)
                 colors[-1].append((pos, start))
                 colors[-1].append((pos + len(sub_key), end))
-                sub_res.append(sub_key + ": " + str(inp[key][sub_key]))
+                sub_res.append(sub_key + ': ' + str(inp[key][sub_key]))
                 pos = (
                     pos
                     + len(sub_key)
@@ -100,13 +100,13 @@ def view_status(inp: Any, display_len: int = 80) -> str:
         else:
             strings[-1] += str(inp[key])
 
-        strings.append("")
+        strings.append('')
         colors.append([])
 
         color_index += 1
         color_index %= 6
 
-    new_strings = ["=" * display_len]
+    new_strings = ['=' * display_len]
     for index in range(len(strings)):
         string = strings[index]
         position = 0
@@ -115,7 +115,7 @@ def view_status(inp: Any, display_len: int = 80) -> str:
         while len(string) > 0:
             splitter_location = -1
             if len(string) > display_len:
-                splitter_location = string[:display_len].rfind(" | ")
+                splitter_location = string[:display_len].rfind(' | ')
             split_colors = []
             if splitter_location > 0:
                 string_end = splitter_location
@@ -132,45 +132,45 @@ def view_status(inp: Any, display_len: int = 80) -> str:
 
             if len(string) < display_len:
                 to_print = string
-                to_print = to_print + " " * (display_len - len(to_print))
+                to_print = to_print + ' ' * (display_len - len(to_print))
                 new_strings.append(
                     colorize_string(to_print, split_colors, padding=padding)
                 )
                 break
             elif splitter_location > 0:
                 to_print = string[:splitter_location]
-                to_print = to_print + " " * (display_len - len(to_print))
+                to_print = to_print + ' ' * (display_len - len(to_print))
                 new_strings.append(
                     colorize_string(to_print, split_colors, padding=padding)
                 )
                 string = (
-                    " " * (max_len + 1) + string[(splitter_location + 3) :]
+                    ' ' * (max_len + 1) + string[(splitter_location + 3) :]
                 )
                 position += splitter_location + 3 - padding
                 padding = max_len + 1
             else:
                 to_print = string[:string_end]
-                to_print = to_print + " " * (display_len - len(to_print))
+                to_print = to_print + ' ' * (display_len - len(to_print))
                 new_strings.append(
                     colorize_string(to_print, split_colors, padding=padding)
                 )
-                string = " " * (max_len + 1) + string[string_end:]
+                string = ' ' * (max_len + 1) + string[string_end:]
                 position += string_end - padding
                 padding = max_len + 1
 
-    new_strings.append("=" * display_len)
-    return "\n".join(new_strings)
+    new_strings.append('=' * display_len)
+    return '\n'.join(new_strings)
 
 
-def dict_to_multi_dict(status: Dict[str, Any]) -> Dict[str, Any]:
+def dict_to_multi_dict(status: dict[str, Any]) -> dict[str, Any]:
     decomposed_status = {}
     for key in list(status.keys()):
-        key_parts = key.split("/")
+        key_parts = key.split('/')
         if len(key_parts) > 2:
             continue
         if len(key_parts) > 1:
             super_key = key_parts[0]
-            sub_key = "/".join(key_parts[1:])
+            sub_key = '/'.join(key_parts[1:])
             if super_key not in decomposed_status:
                 decomposed_status[super_key] = {}
             decomposed_status[super_key][sub_key] = status[key]
@@ -190,7 +190,7 @@ def get_width() -> int:
 
 class StageProgressBar:
     def __init__(
-        self, width_function: Callable, display_id: str = f"ep{0}"
+        self, width_function: Callable, display_id: str = f'ep{0}'
     ) -> None:
         self.width_function = width_function
         self.width = 0
@@ -208,8 +208,8 @@ class StageProgressBar:
 
     @staticmethod
     def display(content: str) -> None:
-        print(content, end="")
-        print("\033[" + str(n_lines(content)) + "A")
+        print(content, end='')
+        print('\033[' + str(n_lines(content)) + 'A')
 
     def __del__(self) -> None:
         self.finalize()
@@ -235,9 +235,9 @@ def progress_str(width: int, state: float) -> str:
 
     if filled < width:
         remnant = str(int(math.floor((progress - filled) * 10.0)))
-        return "[" + "=" * filled + remnant + " " * (width - filled - 1) + "]"
+        return '[' + '=' * filled + remnant + ' ' * (width - filled - 1) + ']'
     else:
-        return "[" + "=" * width + "]"
+        return '[' + '=' * width + ']'
 
 
 class TimeEstimator:
@@ -272,8 +272,8 @@ class TimeEstimator:
                 )
             )
         else:
-            eta = "?"
-        return f"[{elapsed}>{eta}]"
+            eta = '?'
+        return f'[{elapsed}>{eta}]'
 
 
 class LightProgressBar(ProgressBar):
@@ -281,7 +281,7 @@ class LightProgressBar(ProgressBar):
         super().__init__()
         self.last_epoch = 0
         self.pbar = StageProgressBar(
-            width_function=get_width, display_id=f"ep{0}"
+            width_function=get_width, display_id=f'ep{0}'
         )
         self.timer = TimeEstimator()
         self.display_counter = 0
@@ -297,24 +297,24 @@ class LightProgressBar(ProgressBar):
         self.timer.reset()
         trainer = args[0]
         log = copy.deepcopy(trainer.logged_metrics)
-        if "epoch" in log:
-            log["Info/epoch"] = copy.deepcopy(log["epoch"])
-            del log["epoch"]
-        log["Info/Mode"] = "train"
-        log["Info/Progress"] = progress_str(15, 0)
-        log["Info/Time"] = str(self.timer)
+        if 'epoch' in log:
+            log['Info/epoch'] = copy.deepcopy(log['epoch'])
+            del log['epoch']
+        log['Info/Mode'] = 'train'
+        log['Info/Progress'] = progress_str(15, 0)
+        log['Info/Time'] = str(self.timer)
         self.pbar.update(log)
         self.pbar.update(trainer.logged_metrics)
 
     def on_train_epoch_end(self, *args: Any, **kwargs: Any) -> None:
         trainer = args[0]
         log = copy.deepcopy(trainer.logged_metrics)
-        if "epoch" in log:
-            log["Info/epoch"] = copy.deepcopy(log["epoch"])
-            del log["epoch"]
-        log["Info/Mode"] = "train"
-        log["Info/Progress"] = progress_str(15, 1.0)
-        log["Info/Time"] = str(self.timer)
+        if 'epoch' in log:
+            log['Info/epoch'] = copy.deepcopy(log['epoch'])
+            del log['epoch']
+        log['Info/Mode'] = 'train'
+        log['Info/Progress'] = progress_str(15, 1.0)
+        log['Info/Time'] = str(self.timer)
         self.pbar.update(log)
         self.pbar.update(trainer.logged_metrics)
 
@@ -324,48 +324,48 @@ class LightProgressBar(ProgressBar):
         self.timer.update(float(batch_idx) / float(total_batches))
         trainer = args[0]
         log = copy.deepcopy(trainer.logged_metrics)
-        if "epoch" in log:
-            log["Info/epoch"] = copy.deepcopy(log["epoch"])
-            del log["epoch"]
-        log["Info/Mode"] = part
-        log["Info/Progress"] = (
+        if 'epoch' in log:
+            log['Info/epoch'] = copy.deepcopy(log['epoch'])
+            del log['epoch']
+        log['Info/Mode'] = part
+        log['Info/Progress'] = (
             progress_str(15, float(batch_idx) / float(total_batches))
-            + f" {str(batch_idx)} / {str(total_batches)}"
+            + f' {str(batch_idx)} / {str(total_batches)}'
         )
-        log["Info/Time"] = str(self.timer)
+        log['Info/Time'] = str(self.timer)
         self.pbar.update(log)
 
     def on_train_batch_end(self, *args: Any, **kwargs: Any) -> None:
         super().on_train_batch_end(*args, **kwargs)
         self.step(
-            "train", self.train_batch_idx, self.total_train_batches, *args
+            'train', self.train_batch_idx, self.total_train_batches, *args
         )
 
     def on_validation_epoch_start(self, *args: Any, **kwargs: Any) -> None:
         self.timer.reset()
         trainer = args[0]
         log = trainer.logged_metrics
-        if "epoch" in log:
-            log["Info/epoch"] = copy.deepcopy(log["epoch"])
-            del log["epoch"]
-        log["Info/Mode"] = "val"
-        log["Info/Progress"] = progress_str(15, 0)
-        log["Info/Time"] = str(self.timer)
+        if 'epoch' in log:
+            log['Info/epoch'] = copy.deepcopy(log['epoch'])
+            del log['epoch']
+        log['Info/Mode'] = 'val'
+        log['Info/Progress'] = progress_str(15, 0)
+        log['Info/Time'] = str(self.timer)
         self.pbar.update(log)
         self.pbar.update(trainer.logged_metrics)
 
     def on_validation_epoch_end(self, *args: Any, **kwargs: Any) -> None:
         trainer = args[0]
         log = copy.deepcopy(trainer.logged_metrics)
-        if "epoch" in log:
-            log["Info/epoch"] = copy.deepcopy(log["epoch"])
-            del log["epoch"]
-        log["Info/Mode"] = "val"
-        log["Info/Progress"] = progress_str(15, 1.0)
-        log["Info/Time"] = str(self.timer)
+        if 'epoch' in log:
+            log['Info/epoch'] = copy.deepcopy(log['epoch'])
+            del log['epoch']
+        log['Info/Mode'] = 'val'
+        log['Info/Progress'] = progress_str(15, 1.0)
+        log['Info/Time'] = str(self.timer)
         self.pbar.update(log)
         self.pbar.update(trainer.logged_metrics)
 
     def on_validation_batch_end(self, *args: Any, **kwargs: Any) -> None:
         super().on_validation_batch_end(*args, **kwargs)
-        self.step("val", self.val_batch_idx, self.total_val_batches, *args)
+        self.step('val', self.val_batch_idx, self.total_val_batches, *args)

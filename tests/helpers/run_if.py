@@ -4,12 +4,17 @@ https://github.com/PyTorchLightning/pytorch-lightning/blob/master/tests/helpers/
 """
 
 import sys
-from typing import Any, Optional
+from typing import Any
 
 import pytest
 import torch
 from packaging.version import Version
-from pkg_resources import get_distribution
+
+try:
+    from importlib.metadata import version as get_version
+except ImportError:
+    # Python < 3.8
+    from importlib_metadata import version as get_version
 
 from tests.helpers.package_available import (
     _COMET_AVAILABLE,
@@ -40,9 +45,9 @@ class RunIf:
     def __new__(
         self,
         min_gpus: int = 0,
-        min_torch: Optional[str] = None,
-        max_torch: Optional[str] = None,
-        min_python: Optional[str] = None,
+        min_torch: str | None = None,
+        max_torch: str | None = None,
+        min_python: str | None = None,
         skip_windows: bool = False,
         sh: bool = False,
         tpu: bool = False,
@@ -54,83 +59,83 @@ class RunIf:
         mlflow: bool = False,
         **kwargs: Any,
     ):
-        """
-        Args:
-            min_gpus: min number of GPUs required to run test
-            min_torch: minimum pytorch version to run test
-            max_torch: maximum pytorch version to run test
-            min_python: minimum python version required to run test
-            skip_windows: skip test for Windows platform
-            tpu: if TPU is available
-            sh: if `sh` module is required to run the test
-            fairscale: if `fairscale` module is required to run the test
-            deepspeed: if `deepspeed` module is required to run the test
-            wandb: if `wandb` module is required to run the test
-            neptune: if `neptune` module is required to run the test
-            comet: if `comet` module is required to run the test
-            mlflow: if `mlflow` module is required to run the test
-            kwargs: native pytest.mark.skipif keyword arguments
+        """Initialize RunIf wrapper.
+
+        :param min_gpus: min number of GPUs required to run test
+        :param min_torch: minimum pytorch version to run test
+        :param max_torch: maximum pytorch version to run test
+        :param min_python: minimum python version required to run test
+        :param skip_windows: skip test for Windows platform
+        :param tpu: if TPU is available
+        :param sh: if `sh` module is required to run the test
+        :param fairscale: if `fairscale` module is required to run the test
+        :param deepspeed: if `deepspeed` module is required to run the test
+        :param wandb: if `wandb` module is required to run the test
+        :param neptune: if `neptune` module is required to run the test
+        :param comet: if `comet` module is required to run the test
+        :param mlflow: if `mlflow` module is required to run the test
+        :param kwargs: native pytest.mark.skipif keyword arguments
         """
         conditions = []
         reasons = []
 
         if min_gpus:
             conditions.append(torch.cuda.device_count() < min_gpus)
-            reasons.append(f"GPUs>={min_gpus}")
+            reasons.append(f'GPUs>={min_gpus}')
 
         if min_torch:
-            torch_version = get_distribution("torch").version
+            torch_version = get_version('torch')
             conditions.append(Version(torch_version) < Version(min_torch))
-            reasons.append(f"torch>={min_torch}")
+            reasons.append(f'torch>={min_torch}')
 
         if max_torch:
-            torch_version = get_distribution("torch").version
+            torch_version = get_version('torch')
             conditions.append(Version(torch_version) >= Version(max_torch))
-            reasons.append(f"torch<{max_torch}")
+            reasons.append(f'torch<{max_torch}')
 
         if min_python:
             major = sys.version_info.major
             minor = sys.version_info.minor
             micro = sys.version_info.micro
-            py_version = f"{major}.{minor}.{micro}"
+            py_version = f'{major}.{minor}.{micro}'
             conditions.append(Version(py_version) < Version(min_python))
-            reasons.append(f"python>={min_python}")
+            reasons.append(f'python>={min_python}')
 
         if skip_windows:
             conditions.append(_IS_WINDOWS)
-            reasons.append("does not run on Windows")
+            reasons.append('does not run on Windows')
 
         if tpu:
             conditions.append(not _TPU_AVAILABLE)
-            reasons.append("TPU")
+            reasons.append('TPU')
 
         if sh:
             conditions.append(not _SH_AVAILABLE)
-            reasons.append("sh")
+            reasons.append('sh')
 
         if fairscale:
             conditions.append(not _FAIRSCALE_AVAILABLE)
-            reasons.append("fairscale")
+            reasons.append('fairscale')
 
         if deepspeed:
             conditions.append(not _DEEPSPEED_AVAILABLE)
-            reasons.append("deepspeed")
+            reasons.append('deepspeed')
 
         if wandb:
             conditions.append(not _WANDB_AVAILABLE)
-            reasons.append("wandb")
+            reasons.append('wandb')
 
         if neptune:
             conditions.append(not _NEPTUNE_AVAILABLE)
-            reasons.append("neptune")
+            reasons.append('neptune')
 
         if comet:
             conditions.append(not _COMET_AVAILABLE)
-            reasons.append("comet")
+            reasons.append('comet')
 
         if mlflow:
             conditions.append(not _MLFLOW_AVAILABLE)
-            reasons.append("mlflow")
+            reasons.append('mlflow')
 
         reasons = [rs for cond, rs in zip(conditions, reasons) if cond]
         return pytest.mark.skipif(

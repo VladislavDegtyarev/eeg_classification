@@ -1,6 +1,6 @@
 import os
 import random
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import torch
@@ -25,9 +25,9 @@ def log_gpu_memory_metadata() -> None:
     cards = (nvmlDeviceGetHandleByIndex(num) for num in range(gpus_num))
     for i, card in enumerate(cards):
         info = nvmlDeviceGetMemoryInfo(card)
-        log.info(f"GPU memory info: card {i} : total : {info.total}")
-        log.info(f"GPU memory info: card {i} : free  : {info.free}")
-        log.info(f"GPU memory info: card {i} : used  : {info.used}")
+        log.info(f'GPU memory info: card {i} : total : {info.total}')
+        log.info(f'GPU memory info: card {i} : free  : {info.free}')
+        log.info(f'GPU memory info: card {i} : used  : {info.used}')
 
 
 def set_seed(
@@ -44,10 +44,9 @@ def set_seed(
 
     Also, manually set up deterministic and benchmark modes.
 
-    Args:
-        seed (int): Seed. Default to 42.
-        deterministic (bool): deterministic mode. Default to True.
-        benchmark (bool): benchmark mode. Default to False.
+    :param seed: Seed. Default to 42.
+    :param deterministic: deterministic mode. Default to True.
+    :param benchmark: benchmark mode. Default to False.
     """
 
     random.seed(seed)
@@ -72,27 +71,25 @@ def set_max_threads(max_threads: int = 32) -> None:
     - VECLIB_MAXIMUM_THREADS
     - NUMEXPR_NUM_THREADS
 
-    Args:
-        max_threads (int): Max threads value. Default to 32.
+    :param max_threads: Max threads value. Default to 32.
     """
 
-    os.environ["OMP_NUM_THREADS"] = str(max_threads)
-    os.environ["OPENBLAS_NUM_THREADS"] = str(max_threads)
-    os.environ["MKL_NUM_THREADS"] = str(max_threads)
-    os.environ["VECLIB_MAXIMUM_THREADS"] = str(max_threads)
-    os.environ["NUMEXPR_NUM_THREADS"] = str(max_threads)
+    os.environ['OMP_NUM_THREADS'] = str(max_threads)
+    os.environ['OPENBLAS_NUM_THREADS'] = str(max_threads)
+    os.environ['MKL_NUM_THREADS'] = str(max_threads)
+    os.environ['VECLIB_MAXIMUM_THREADS'] = str(max_threads)
+    os.environ['NUMEXPR_NUM_THREADS'] = str(max_threads)
 
 
-def collect_random_states() -> Dict[str, Any]:
+def collect_random_states() -> dict[str, Any]:
     """Collect random states: random, numpy, torch, torch.cuda.
 
-    Returns:
-        dict: Dict with random states.
+    :return: Dict with random states.
     """
 
     return {
-        "python": random.getstate(),
-        "numpy": np.random.get_state(),
-        "torch": torch.random.get_rng_state(),
-        "torch.cuda": torch.cuda.random.get_rng_state_all(),
+        'python': random.getstate(),
+        'numpy': np.random.get_state(),
+        'torch': torch.random.get_rng_state(),
+        'torch.cuda': torch.cuda.random.get_rng_state_all(),
     }

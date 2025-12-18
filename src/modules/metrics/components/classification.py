@@ -1,4 +1,3 @@
-from typing import Optional
 
 import torch
 from pytorch_lightning.utilities import FLOAT32_EPSILON
@@ -9,10 +8,10 @@ class Accuracy(Metric):
     def __init__(self, dist_sync_on_step: bool = False) -> None:
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state(
-            "correct", default=torch.tensor(0.0), dist_reduce_fx="sum"
+            'correct', default=torch.tensor(0.0), dist_reduce_fx='sum'
         )
         self.add_state(
-            "total", default=torch.tensor(0.0), dist_reduce_fx="sum"
+            'total', default=torch.tensor(0.0), dist_reduce_fx='sum'
         )
 
     def update(self, preds: torch.Tensor, targets: torch.Tensor) -> None:
@@ -27,9 +26,9 @@ class Accuracy(Metric):
 class NDCG(Metric):
     def __init__(self, dist_sync_on_step: bool = False, k: int = 10) -> None:
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.add_state("ndcg", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state('ndcg', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state(
-            "count", default=torch.tensor(0.0), dist_reduce_fx="sum"
+            'count', default=torch.tensor(0.0), dist_reduce_fx='sum'
         )
         self.k = k
 
@@ -68,12 +67,12 @@ class NDCG(Metric):
 
 class MRR(Metric):
     def __init__(
-        self, dist_sync_on_step: bool = False, k: Optional[int] = None
+        self, dist_sync_on_step: bool = False, k: int | None = None
     ) -> None:
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.add_state("mrr", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state('mrr', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state(
-            "count", default=torch.tensor(0.0), dist_reduce_fx="sum"
+            'count', default=torch.tensor(0.0), dist_reduce_fx='sum'
         )
         self.k = k
 
@@ -101,14 +100,14 @@ class MRR(Metric):
 
 class SentiMRR(Metric):
     def __init__(
-        self, dist_sync_on_step: bool = False, k: Optional[int] = None
+        self, dist_sync_on_step: bool = False, k: int | None = None
     ) -> None:
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state(
-            "senti_mrr", default=torch.tensor(0.0), dist_reduce_fx="sum"
+            'senti_mrr', default=torch.tensor(0.0), dist_reduce_fx='sum'
         )
         self.add_state(
-            "count", default=torch.tensor(0.0), dist_reduce_fx="sum"
+            'count', default=torch.tensor(0.0), dist_reduce_fx='sum'
         )
         self.k = k
 
@@ -144,10 +143,10 @@ class PrecisionAtRecall(Metric):
     ) -> None:
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state(
-            "correct", default=torch.tensor(0.0), dist_reduce_fx="sum"
+            'correct', default=torch.tensor(0.0), dist_reduce_fx='sum'
         )
         self.add_state(
-            "wrong", default=torch.tensor(0.0), dist_reduce_fx="sum"
+            'wrong', default=torch.tensor(0.0), dist_reduce_fx='sum'
         )
         self.recall_point = recall_point
 

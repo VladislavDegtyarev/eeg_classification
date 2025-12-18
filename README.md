@@ -1,4 +1,4 @@
-# Yet Another Lightning Hydra Template
+# EEG classification
 
 Efficient workflow and reproducibility are extremely important components in every machine learning projects, which
 enable to:

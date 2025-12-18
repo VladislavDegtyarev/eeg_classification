@@ -18,13 +18,12 @@ class BaseLitModule(LightningModule):
     ) -> None:
         """BaseLightningModule.
 
-        Args:
-            network (DictConfig): Network config.
-            optimizer (DictConfig): Optimizer config.
-            scheduler (DictConfig): Scheduler config.
-            logging (DictConfig): Logging config.
-            args (Any): Additional arguments for pytorch_lightning.LightningModule.
-            kwargs (Any): Additional keyword arguments for pytorch_lightning.LightningModule.
+        :param network: Network config.
+        :param optimizer: Optimizer config.
+        :param scheduler: Scheduler config.
+        :param logging: Logging config.
+        :param args: Additional arguments for pytorch_lightning.LightningModule.
+        :param kwargs: Additional keyword arguments for pytorch_lightning.LightningModule.
         """
 
         super().__init__(*args, **kwargs)
@@ -38,17 +37,17 @@ class BaseLitModule(LightningModule):
 
     def configure_optimizers(self) -> Any:
         optimizer: torch.optim = hydra.utils.instantiate(
-            self.opt_params, params=self.parameters(), _convert_="partial"
+            self.opt_params, params=self.parameters(), _convert_='partial'
         )
-        if self.slr_params.get("scheduler"):
+        if self.slr_params.get('scheduler'):
             scheduler: torch.optim.lr_scheduler = hydra.utils.instantiate(
                 self.slr_params.scheduler,
                 optimizer=optimizer,
-                _convert_="partial",
+                _convert_='partial',
             )
-            lr_scheduler_dict = {"scheduler": scheduler}
-            if self.slr_params.get("extras"):
-                for key, value in self.slr_params.get("extras").items():
+            lr_scheduler_dict = {'scheduler': scheduler}
+            if self.slr_params.get('extras'):
+                for key, value in self.slr_params.get('extras').items():
                     lr_scheduler_dict[key] = value
-            return {"optimizer": optimizer, "lr_scheduler": lr_scheduler_dict}
-        return {"optimizer": optimizer}
+            return {'optimizer': optimizer, 'lr_scheduler': lr_scheduler_dict}
+        return {'optimizer': optimizer}

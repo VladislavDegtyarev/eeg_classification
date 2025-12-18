@@ -23,21 +23,21 @@ def test_train_eval_predict(tmp_path, cfg_train, cfg_eval):
     HydraConfig().set_config(cfg_train)
     train_metric_dict, _ = train(cfg_train)
 
-    assert "last.ckpt" in os.listdir(tmp_path / "checkpoints")
+    assert 'last.ckpt' in os.listdir(tmp_path / 'checkpoints')
 
     # evaluate
     with open_dict(cfg_eval):
-        cfg_eval.ckpt_path = str(tmp_path / "checkpoints" / "last.ckpt")
+        cfg_eval.ckpt_path = str(tmp_path / 'checkpoints' / 'last.ckpt')
 
     HydraConfig().set_config(cfg_eval)
     test_metric_dict, _ = evaluate(cfg_eval)
 
-    metric = "MulticlassAccuracy"
-    assert test_metric_dict[f"{metric}/test"] > 0.0
+    metric = 'MulticlassAccuracy'
+    assert test_metric_dict[f'{metric}/test'] > 0.0
     assert (
         abs(
-            train_metric_dict[f"{metric}/test"].item()
-            - test_metric_dict[f"{metric}/test"].item()
+            train_metric_dict[f'{metric}/test'].item()
+            - test_metric_dict[f'{metric}/test'].item()
         )
         < 0.001
     )
@@ -49,4 +49,4 @@ def test_train_eval_predict(tmp_path, cfg_train, cfg_eval):
     HydraConfig().set_config(cfg_eval)
     evaluate(cfg_eval)
 
-    assert "predictions.json" in os.listdir(tmp_path / "predictions")
+    assert 'predictions.json' in os.listdir(tmp_path / 'predictions')

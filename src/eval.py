@@ -1,5 +1,3 @@
-from typing import List, Tuple
-
 import hydra
 import pyrootutils
 from omegaconf import DictConfig
@@ -50,24 +48,22 @@ root = pyrootutils.setup_root(
     dotenv=True,
 )
 _HYDRA_PARAMS = {
-    "version_base": "1.3",
-    "config_path": str(root / "configs"),
-    "config_name": "eval.yaml",
+    'version_base': '1.3',
+    'config_path': str(root / 'configs'),
+    'config_name': 'eval.yaml',
 }
 log = utils.get_pylogger(__name__)
 
 
 @utils.task_wrapper
-def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
+def evaluate(cfg: DictConfig) -> tuple[dict, dict]:
     """Evaluates given checkpoint on a datamodule testset.
 
     This method is wrapped in optional @task_wrapper decorator which applies
     extra utilities before and after the call.
-    Args:
-        cfg (DictConfig): Configuration composed by Hydra.
-    Returns:
-        Tuple[dict, dict]: Dict with metrics and dict with all instantiated
-        objects.
+
+    :param cfg: Configuration composed by Hydra.
+    :return: Dict with metrics and dict with all instantiated objects.
     """
 
     assert cfg.ckpt_path
@@ -75,48 +71,48 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
     utils.log_gpu_memory_metadata()
 
     # set seed for random number generators in pytorch, numpy and python.random
-    if cfg.get("seed"):
-        log.info(f"Seed everything with <{cfg.seed}>")
+    if cfg.get('seed'):
+        log.info(f'Seed everything with <{cfg.seed}>')
         seed_everything(cfg.seed, workers=True)
 
     # Init lightning datamodule
-    log.info(f"Instantiating datamodule <{cfg.datamodule._target_}>")
+    log.info(f'Instantiating datamodule <{cfg.datamodule._target_}>')
     datamodule: LightningDataModule = hydra.utils.instantiate(
         cfg.datamodule, _recursive_=False
     )
 
     # Init lightning model
-    log.info(f"Instantiating lightning model <{cfg.module._target_}>")
+    log.info(f'Instantiating lightning model <{cfg.module._target_}>')
     model: LightningModule = hydra.utils.instantiate(
         cfg.module, _recursive_=False
     )
 
-    log.info("Instantiating loggers...")
-    logger: List[Logger] = utils.instantiate_loggers(
-        cfg.get("logger")
+    log.info('Instantiating loggers...')
+    logger: list[Logger] = utils.instantiate_loggers(
+        cfg.get('logger')
     )
 
-    log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
+    log.info(f'Instantiating trainer <{cfg.trainer._target_}>')
     trainer: Trainer = hydra.utils.instantiate(cfg.trainer, logger=logger)
 
     object_dict = {
-        "cfg": cfg,
-        "datamodule": datamodule,
-        "model": model,
-        "logger": logger,
-        "trainer": trainer,
+        'cfg': cfg,
+        'datamodule': datamodule,
+        'model': model,
+        'logger': logger,
+        'trainer': trainer,
     }
 
     if logger:
-        log.info("Logging hyperparameters!")
+        log.info('Logging hyperparameters!')
         utils.log_hyperparameters(object_dict)
 
     # Log metadata
-    log.info("Logging metadata!")
+    log.info('Logging metadata!')
     utils.log_metadata(cfg)
 
-    if cfg.get("predict"):
-        log.info("Starting predicting!")
+    if cfg.get('predict'):
+        log.info('Starting predicting!')
         predictions = trainer.predict(
             model=model,
             datamodule=datamodule,
@@ -129,7 +125,7 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
         )
 
     else:
-        log.info("Starting testing!")
+        log.info('Starting testing!')
         trainer.test(
             model=model,
             datamodule=datamodule,

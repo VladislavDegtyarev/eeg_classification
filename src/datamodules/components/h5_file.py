@@ -4,7 +4,7 @@ import os
 import queue
 import weakref
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Iterable
 
 import h5py
 import numpy as np
@@ -16,7 +16,7 @@ _H5PY_FILES_CACHE = weakref.WeakValueDictionary()
 def parallel_generator(
     func: Callable,
     array: Iterable,
-    n_jobs: Optional[int] = None,
+    n_jobs: int | None = None,
     buffer: int = 1024,
 ) -> Any:
     """Generator in parallel threads."""
@@ -49,14 +49,13 @@ class H5PyFile:
     """
 
     def __init__(
-        self, filename: Optional[str] = None, mode: str = "r", **kwargs: Any
+        self, filename: str | None = None, mode: str = 'r', **kwargs: Any
     ) -> None:
         """H5PyFile module.
 
-        Args:
-            filename (:obj:`str`, optional): h5py filename. Default to None.
-            mode (str): h5py file operation mode (r, r+, w, w-, x, a). Default to 'r'.
-            **kwargs: Additional arguments for h5py.File class initialization.
+        :param filename: h5py filename. Default to None.
+        :param mode: h5py file operation mode (r, r+, w, w-, x, a). Default to 'r'.
+        :param kwargs: Additional arguments for h5py.File class initialization.
         """
 
         self.filename = filename
@@ -72,7 +71,7 @@ class H5PyFile:
             raise FileNotFoundError(f"File '{self.filename}' is not found!")
 
         can_use_cache = True
-        if self.mode != "r":
+        if self.mode != 'r':
             # Non-read mode
             can_use_cache = False
 
@@ -96,40 +95,39 @@ class H5PyFile:
         self._lazy_load_()
         return self.dataset.__setitem__(*args, **kwargs)
 
-    def __getstate__(self) -> Tuple[str, str, Dict[str, Any]]:
+    def __getstate__(self) -> tuple[str, str, dict[str, Any]]:
         return self.filename, self.mode, self._kwargs
 
-    def __setstate__(self, state: Tuple[str, str, Dict[str, Any]]) -> Any:
+    def __setstate__(self, state: tuple[str, str, dict[str, Any]]) -> Any:
         return self.__init__(state[0], state[1], **state[2])
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.filename}, {self.mode})"
+        return f'{self.__class__.__name__}({self.filename}, {self.mode})'
 
     @classmethod
     def create(
         cls,
         filename: str,
-        content: List[str],
-        dirname: Optional[str] = None,
+        content: list[str],
+        dirname: str | None = None,
         verbose: bool = True,
     ) -> None:
         """Create h5py file for dataset from scratch.
 
-        Args:
-            filename (str): h5py filename.
-            content (List[str]): Dataset content. Requires List[data filepath].
-            dirname (:obj:`str`, optional): Additional dirname for data filepaths.
-                Default to None.
-            verbose (bool): Verbose option. If True, it would show tqdm progress bar.
-                Default to True.
+        :param filename: h5py filename.
+        :param content: Dataset content. Requires List[data filepath].
+        :param dirname: Additional dirname for data filepaths.
+            Default to None.
+        :param verbose: Verbose option. If True, it would show tqdm progress bar.
+            Default to True.
         """
         filename = Path(filename)
         ext = filename.suffix
-        if ext != ".h5":
+        if ext != '.h5':
             raise RuntimeError(
                 f"Expected extension to be '.h5', instead got '{ext}'."
             )
-        dirname = Path("" if dirname is None else dirname)
+        dirname = Path('' if dirname is None else dirname)
         progress_bar = tqdm if verbose else (lambda it, *_, **__: it)
 
         # Check that all files exist
@@ -139,7 +137,7 @@ class H5PyFile:
             n_jobs=128,
         )
         for filepath, found in progress_bar(
-            generator, desc="Indexing content", total=len(content)
+            generator, desc='Indexing content', total=len(content)
         ):
             if not found:
                 raise FileNotFoundError(filepath)
@@ -150,8 +148,8 @@ class H5PyFile:
             content,
             n_jobs=128,
         )
-        with h5py.File(filename, mode="x") as dataset:
+        with h5py.File(filename, mode='x') as dataset:
             for filepath, data in progress_bar(
-                generator, desc="Creating dataset", total=len(content)
+                generator, desc='Creating dataset', total=len(content)
             ):
                 dataset[str(filepath)] = data

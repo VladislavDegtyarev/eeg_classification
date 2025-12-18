@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any
 
 import torch
 from torch import nn
@@ -41,7 +41,7 @@ class Classifier(BaseModule):
         self,
         model_name: str,
         num_classes: int,
-        model_repo: Optional[str] = None,
+        model_repo: str | None = None,
         freeze_layers: Any = None,
         **kwargs: Any,
     ) -> None:
@@ -71,8 +71,8 @@ class ClassifierMultipleHead(BaseModule):
     def __init__(
         self,
         model_name: str,
-        num_classes: List[int],
-        model_repo: Optional[str] = None,
+        num_classes: list[int],
+        model_repo: str | None = None,
         freeze_layers: Any = None,
         **kwargs: Any,
     ) -> None:
@@ -81,7 +81,7 @@ class ClassifierMultipleHead(BaseModule):
             self.model, [name for name, _ in self.model.named_children()][-1]
         )
         in_features = get_module_attr_by_name_recursively(
-            head, 0, "in_features"
+            head, 0, 'in_features'
         )
         replace_module_by_identity(self.model, head, nn.Identity())
         heads = []
@@ -90,7 +90,7 @@ class ClassifierMultipleHead(BaseModule):
         self.num_classes = num_classes
         self.heads = nn.ModuleList(heads)
 
-    def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
         x = self.model(x)
         outputs = []
         for head, num_classes in zip(self.heads, self.num_classes):
@@ -105,7 +105,7 @@ class BackboneVicReg(BaseModule):
     def __init__(
         self,
         model_name: str,
-        model_repo: Optional[str] = None,
+        model_repo: str | None = None,
         freeze_layers: Any = None,
         **kwargs: Any,
     ) -> None:

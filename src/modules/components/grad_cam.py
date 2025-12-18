@@ -1,4 +1,4 @@
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable
 
 import matplotlib.pyplot as plt
 import torch
@@ -10,12 +10,12 @@ from torch.utils.data import DataLoader
 def check_grad_cam(
     model: Any,
     dataloader: DataLoader,
-    target_layer: List[Any],
+    target_layer: list[Any],
     target_category: Any,
-    dataloader_idx: Optional[int] = None,
-    reshape_transform: Optional[Callable] = None,
+    dataloader_idx: int | None = None,
+    reshape_transform: Callable | None = None,
     use_cuda: bool = False,
-) -> Tuple[Any, ...]:
+) -> tuple[Any, ...]:
     grad_cam = GradCAMPlusPlus(
         model=model,
         target_layer=target_layer,
@@ -24,7 +24,7 @@ def check_grad_cam(
     )
 
     batch = next(iter(dataloader))
-    images, labels = batch["image"], batch["label"]
+    images, labels = batch['image'], batch['label']
     grad_cam.batch_size = len(images)
     logits = model.forward(images)
     if dataloader_idx:
@@ -56,7 +56,7 @@ def reshape_transform(
 
 
 def grad_cam_visualizer(
-    grad_cam_outputs: Tuple[Any], figsize: Tuple[int, int] = (20, 20)
+    grad_cam_outputs: tuple[Any], figsize: tuple[int, int] = (20, 20)
 ) -> None:
     """GradCam output visualizer."""
     plt.figure(figsize=figsize)
@@ -67,5 +67,5 @@ def grad_cam_visualizer(
         visualization = show_cam_on_image(image, grayscale_cam)
 
         plt.imshow(visualization)
-        plt.title(f"pred:\n {pred}\n label: {label}")
-        plt.axis("off")
+        plt.title(f'pred:\n {pred}\n label: {label}')
+        plt.axis('off')

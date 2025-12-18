@@ -7,17 +7,17 @@ class IoU(Metric):
         self,
         n_class: int,
         dist_sync_on_step: bool = False,
-        dist_reduce_fx: str = "sum",
+        dist_reduce_fx: str = 'sum',
     ) -> None:
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.n_class = n_class
         self.add_state(
-            "intersection",
+            'intersection',
             default=torch.zeros((n_class,)),
             dist_reduce_fx=dist_reduce_fx,
         )
         self.add_state(
-            "union",
+            'union',
             default=torch.zeros((n_class,)),
             dist_reduce_fx=dist_reduce_fx,
         )

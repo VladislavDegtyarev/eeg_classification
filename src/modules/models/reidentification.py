@@ -1,4 +1,4 @@
-from typing import Any, Optional, Tuple
+from typing import Any
 
 import torch
 import torch.nn.functional as F
@@ -50,11 +50,11 @@ class ReIdentificator(BaseModule):
         self,
         model_name: str,
         head_type: str,
-        embedding_size: Optional[int] = None,
-        kernel_size: Optional[Tuple[int, int]] = None,
-        proj_hidden_dim: Optional[int] = None,
-        model_repo: Optional[str] = None,
-        p: Optional[int] = None,
+        embedding_size: int | None = None,
+        kernel_size: tuple[int, int] | None = None,
+        proj_hidden_dim: int | None = None,
+        model_repo: str | None = None,
+        p: int | None = None,
         gem_trainable: bool = False,
         freeze_layers: Any = None,
         **kwargs: Any,
@@ -66,10 +66,10 @@ class ReIdentificator(BaseModule):
         avg_pool = get_module_by_name(
             self.model, [name for name, _ in self.model.named_children()][-2]
         )
-        if head_type == "gem":
+        if head_type == 'gem':
             assert p is not None
             self.features_dim = get_module_attr_by_name_recursively(
-                head, 0, "in_features"
+                head, 0, 'in_features'
             )
             replace_module_by_identity(self.model, head, nn.Identity())
             if gem_trainable:
@@ -88,13 +88,13 @@ class ReIdentificator(BaseModule):
                 [name for name, _ in self.model.named_children()][-3],
             )
             out_channels = get_module_attr_by_name_recursively(
-                last_encoder_layer, -1, "out_channels"
+                last_encoder_layer, -1, 'out_channels'
             )
             if not out_channels:
                 # Transformer based models don't have conv layers, which have
                 # out_channels attr, so need to check for out_features
                 out_channels = get_module_attr_by_name_recursively(
-                    last_encoder_layer, -1, "out_features"
+                    last_encoder_layer, -1, 'out_features'
                 )
             replace_module_by_identity(
                 self.model,

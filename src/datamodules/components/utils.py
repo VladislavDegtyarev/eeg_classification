@@ -1,5 +1,5 @@
 from operator import itemgetter
-from typing import Iterator, Optional
+from typing import Iterator
 
 from torch.utils.data import Dataset, Sampler
 from torch.utils.data.distributed import DistributedSampler
@@ -8,8 +8,7 @@ from torch.utils.data.distributed import DistributedSampler
 class DatasetFromSampler(Dataset):
     """Dataset to create indexes from `Sampler`.
 
-    Args:
-        sampler: PyTorch sampler
+    :param sampler: PyTorch sampler
     """
 
     def __init__(self, sampler: Sampler):
@@ -20,19 +19,17 @@ class DatasetFromSampler(Dataset):
     def __getitem__(self, index: int):
         """Gets element of the dataset.
 
-        Args:
-            index: index of the element in the dataset
-        Returns:
-            Single element by index
+        :param index: index of the element in the dataset
+        :return: Single element by index
         """
         if self.sampler_list is None:
             self.sampler_list = list(self.sampler)
         return self.sampler_list[index]
 
     def __len__(self) -> int:
-        """
-        Returns:
-            int: length of the dataset
+        """Return length of the dataset.
+
+        :return: length of the dataset
         """
         return len(self.sampler)
 
@@ -51,19 +48,19 @@ class DistributedSamplerWrapper(DistributedSampler):
     def __init__(
         self,
         sampler,
-        num_replicas: Optional[int] = None,
-        rank: Optional[int] = None,
+        num_replicas: int | None = None,
+        rank: int | None = None,
         shuffle: bool = True,
     ):
-        """
-        Args:
-            sampler: Sampler used for subsampling
-            num_replicas (int, optional): Number of processes participating in
-              distributed training
-            rank (int, optional): Rank of the current process
-              within ``num_replicas``
-            shuffle (bool, optional): If true (default),
-              sampler will shuffle the indices
+        """Initialize DistributedSamplerWrapper.
+
+        :param sampler: Sampler used for subsampling
+        :param num_replicas: Number of processes participating in
+            distributed training
+        :param rank: Rank of the current process
+            within ``num_replicas``
+        :param shuffle: If true (default),
+            sampler will shuffle the indices
         """
         super().__init__(
             DatasetFromSampler(sampler),
@@ -76,8 +73,7 @@ class DistributedSamplerWrapper(DistributedSampler):
     def __iter__(self) -> Iterator[int]:
         """Iterate over sampler.
 
-        Returns:
-            python iterator
+        :return: python iterator
         """
         self.dataset = DatasetFromSampler(self.sampler)
         indexes_of_indexes = super().__iter__()

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Dict, Optional
 
 import numpy as np
 import torch
@@ -31,7 +30,7 @@ class _CIFAR10Transform:
 
     def __call__(self, image: np.ndarray) -> torch.Tensor:
         result = self.transforms(image=image)
-        transformed = result["image"] if isinstance(result, dict) else result
+        transformed = result['image'] if isinstance(result, dict) else result
         return _to_chw_tensor(transformed).float()
 
 
@@ -44,11 +43,11 @@ class _CIFAR10Dataset(Dataset):
     def __len__(self) -> int:
         return len(self.dataset)
 
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         image, label = self.dataset[idx]
         sample = {
-            "image": _to_chw_tensor(image).float(),
-            "label": torch.tensor(label, dtype=torch.long),
+            'image': _to_chw_tensor(image).float(),
+            'label': torch.tensor(label, dtype=torch.long),
         }
         return sample
 
@@ -70,16 +69,16 @@ class CIFAR10DataModule(SingleDataModule):
 
     def prepare_data(self) -> None:
         """Download CIFAR-10 data if required."""
-        data_dir = self.cfg_datasets.get("data_dir")
+        data_dir = self.cfg_datasets.get('data_dir')
         CIFAR10(data_dir, train=True, download=True)
         CIFAR10(data_dir, train=False, download=True)
 
-    def setup(self, stage: Optional[str] = None) -> None:
+    def setup(self, stage: str | None = None) -> None:
         """Populate train/valid/test datasets exactly once."""
         if self.train_set or self.valid_set or self.test_set:
             return
 
-        data_dir = self.cfg_datasets.get("data_dir")
+        data_dir = self.cfg_datasets.get('data_dir')
         train_transform = _CIFAR10Transform(self.transforms.train)
         eval_transform = _CIFAR10Transform(self.transforms.valid_test_predict)
 
@@ -107,10 +106,10 @@ class CIFAR10DataModule(SingleDataModule):
         )
         test_dataset: Dataset = _CIFAR10Dataset(base_eval)
 
-        split = self.cfg_datasets.get("train_val_test_split")
+        split = self.cfg_datasets.get('train_val_test_split')
         if split:
             generator = torch.Generator().manual_seed(
-                self.cfg_datasets.get("seed", 0)
+                self.cfg_datasets.get('seed', 0)
             )
             train_dataset, valid_dataset = random_split(
                 train_dataset, split, generator=generator

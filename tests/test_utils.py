@@ -12,9 +12,9 @@ def test_rich_utils(cfg_train: DictConfig):
 def test_metadata_utils(tmp_path, cfg_train):
     utils.log_metadata(cfg_train)
 
-    files = os.listdir(tmp_path / "metadata")
-    assert "pip.log" in files
-    assert "git.log" in files
-    assert "gpu.log" in files
-    assert "src" in files
-    assert "configs" in files
+    files = os.listdir(tmp_path / 'metadata')
+    assert 'pip.log' in files
+    assert 'git.log' in files
+    assert 'gpu.log' in files
+    assert 'src' in files
+    assert 'configs' in files

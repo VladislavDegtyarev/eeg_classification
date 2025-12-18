@@ -1,24 +1,20 @@
 import os
-from typing import List, Optional, Tuple
 
 
 def parse_image_paths(
-    file_paths: Optional[List[str]] = None,
-    dir_paths: Optional[List[str]] = None,
-    txt_paths: Optional[List[str]] = None,
-    xts: Tuple[str, ...] = (".jpg", ".jpeg", ".png"),
-) -> List[str]:
+    file_paths: list[str] | None = None,
+    dir_paths: list[str] | None = None,
+    txt_paths: list[str] | None = None,
+    xts: tuple[str, ...] = ('.jpg', '.jpeg', '.png'),
+) -> list[str]:
     """Parse image paths from List, List of directories or List of txt files.
 
-    Args:
-        file_paths (:obj:`List[str]`, optional): List of files.
-        dir_paths (:obj:`List[str]`, optional): List of directories.
-        txt_paths (:obj:`List[str]`, optional): List of TXT files.
-        xts (Tuple[str, ...]): Image extensions which are allowed.
-            Default to (".jpg", ".jpeg", ".png").
-
-    Returns:
-        List[str]: Parsed images paths.
+    :param file_paths: List of files.
+    :param dir_paths: List of directories.
+    :param txt_paths: List of TXT files.
+    :param xts: Image extensions which are allowed.
+        Default to ('.jpg', '.jpeg', '.png').
+    :return: Parsed images paths.
     """
 
     paths = []
@@ -40,9 +36,9 @@ def parse_image_paths(
         for txt_path in txt_paths:
             with open(txt_path) as txt_file:
                 for line in txt_file:
-                    path = line[:-1].split("\t")[-1]
+                    path = line[:-1].split('\t')[-1]
                     paths.append(path)
 
     if not paths:
-        raise ValueError(f"No images with extensions: {xts}")
+        raise ValueError(f'No images with extensions: {xts}')
     return paths

@@ -1,4 +1,3 @@
-from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,22 +11,19 @@ from sklearn.metrics import (
 
 
 def accuracy(
-    targets: List[int], preds: List[int], verbose: bool = True
+    targets: list[int], preds: list[int], verbose: bool = True
 ) -> float:
     """Calculate Accuracy by classes.
 
-    Args:
-        targets (List[int]): List of targets.
-        preds (List[int]): List of predictions.
-        verbose: (bool): Verbose mode. Default to True.
-
-    Returns:
-        float: Total accuracy value.
+    :param targets: List of targets.
+    :param preds: List of predictions.
+    :param verbose: Verbose mode. Default to True.
+    :return: Total accuracy value.
     """
 
     acc = accuracy_score(targets, preds)
     if verbose:
-        print(f"Full: accuracy={acc:.5f}")
+        print(f'Full: accuracy={acc:.5f}')
     for target_i in np.unique(targets):
         curr_targets = []
         curr_preds = []
@@ -38,41 +34,38 @@ def accuracy(
         acc_i = accuracy_score(curr_targets, curr_preds)
         if verbose:
             print(
-                f"class {target_i}: {len(curr_targets)}: accuracy={acc_i:.5f}  "
+                f'class {target_i}: {len(curr_targets)}: accuracy={acc_i:.5f}  '
             )
 
     return acc
 
 
 def auroc(
-    targets: List[int],
-    probs: List[float],
+    targets: list[int],
+    probs: list[float],
     plot: bool = False,
-    path: Optional[str] = None,
+    path: str | None = None,
     verbose: bool = True,
 ) -> float:
     """Calculate and draw Area Under Receiver Operating Characteristic Curve.
 
-    Args:
-        targets (List[int]): List of targets.
-        probs (List[float]): List of probabilities.
-        plot (bool): Plot show mode. Default to False.
-        path (:obj:`str`, optional): Save plot by path.
-        verbose: (bool): Verbose mode. Default to True.
-
-    Returns:
-        float: AUROC value.
+    :param targets: List of targets.
+    :param probs: List of probabilities.
+    :param plot: Plot show mode. Default to False.
+    :param path: Save plot by path.
+    :param verbose: Verbose mode. Default to True.
+    :return: AUROC value.
     """
 
     roc_auc = roc_auc_score(targets, probs)
     if verbose:
-        print(f"AUROC={roc_auc:.5f}  ")
+        print(f'AUROC={roc_auc:.5f}  ')
     # draw plot
     fpr, tpr, _ = roc_curve(targets, probs)
-    plt.plot(fpr, tpr, marker=".", label=f"AUROC={roc_auc:.5f}")
-    plt.xlabel("False Positive Rate")
+    plt.plot(fpr, tpr, marker='.', label=f'AUROC={roc_auc:.5f}')
+    plt.xlabel('False Positive Rate')
     plt.xlim(0, 1)
-    plt.ylabel("True Positive Rate")
+    plt.ylabel('True Positive Rate')
     plt.ylim(0, 1)
     plt.legend()
 
@@ -87,52 +80,49 @@ def auroc(
 
 
 def auprc(
-    targets: List[int],
-    probs: List[float],
+    targets: list[int],
+    probs: list[float],
     plot: bool = False,
-    path: Optional[str] = None,
+    path: str | None = None,
     verbose: bool = True,
 ) -> float:
     """Calculate and draw Area Under Precision-Recall Curve.
 
-    Args:
-        targets (List[int]): List of targets.
-        probs (List[float]): List of probabilities.
-        plot (bool): Plot show mode. Default to False.
-        path (:obj:`str`, optional): Save plot by path.
-        verbose: (bool): Verbose mode. Default to True.
-
-    Returns:
-        float: AUPRC value.
+    :param targets: List of targets.
+    :param probs: List of probabilities.
+    :param plot: Plot show mode. Default to False.
+    :param path: Save plot by path.
+    :param verbose: Verbose mode. Default to True.
+    :return: AUPRC value.
     """
     precision, recall, thresholds = precision_recall_curve(targets, probs)
     pr_auc = auc(recall, precision)
     if verbose:
-        print(f"AUPRC={pr_auc:.5f}  ")
+        print(f'AUPRC={pr_auc:.5f}  ')
     # draw plot
     f1_score = 2 * recall * precision / (precision + recall + 1.0e-16)
     best_idx = np.argmax(f1_score)
     f1_score_message = (
-        f"Best f1: {f1_score[best_idx]:.5f},  \n"
-        f"recall: {recall[best_idx]:.5f},  \n"
-        f"precision: {precision[best_idx]:.5f},  \n"
-        f"threshold: {thresholds[best_idx]:.5f}  "
+        f'Best f1: {f1_score[best_idx]:.5f},  \n'
+        f'recall: {recall[best_idx]:.5f},  \n'
+        f'precision: {precision[best_idx]:.5f},  \n'
+        f'threshold: {thresholds[best_idx]:.5f}  '
     )
     if verbose:
         print(f1_score_message)
 
-    plt.plot(recall, precision, marker=".", label=f"AUPRC={pr_auc:.5f}")
+    plt.plot(recall, precision, marker='.', label=f'AUPRC={pr_auc:.5f}')
     plt.scatter(
         recall[best_idx],
         precision[best_idx],
-        marker="o",
-        color="black",
+        marker='o',
+        color='black',
         label=f1_score_message,
         linewidths=5,
     )
-    plt.xlabel("Recall")
+    plt.xlabel('Recall')
     plt.xlim(0, 1)
-    plt.ylabel("Precision")
+    plt.ylabel('Precision')
     plt.ylim(0, 1)
     plt.legend()
 
