@@ -160,3 +160,5 @@ outputs
 *.npy
 
 *.gz
+
+logs/
