@@ -2,6 +2,7 @@ from src.modules.metrics.components.classification import (
     MRR,
     NDCG,
     Accuracy,
+    BalancedAccuracy,
     PrecisionAtRecall,
     SentiMRR,
 )

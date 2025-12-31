@@ -8,6 +8,10 @@ from torch import nn
 from src.modules.components.lit_module import BaseLitModule
 from src.modules.losses import load_loss
 from src.modules.metrics import load_metrics
+from src.modules.metrics.components.classification import ConfusionMatrixMetric
+from src.utils.pylogger import get_pylogger
+
+log = get_pylogger(__name__)
 
 
 class SingleLitModule(BaseLitModule):
@@ -32,6 +36,8 @@ class SingleLitModule(BaseLitModule):
         optimizer: DictConfig,
         scheduler: DictConfig,
         logging: DictConfig,
+        class_names: list[str] | None = None,
+        num_classes: int | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -41,6 +47,8 @@ class SingleLitModule(BaseLitModule):
         :param optimizer: Optimizer config.
         :param scheduler: Scheduler config.
         :param logging: Logging config.
+        :param class_names: List of class names for confusion matrix logging.
+        :param num_classes: Number of classes. If None, inferred from network config.
         :param args: Additional arguments for pytorch_lightning.LightningModule.
         :param kwargs: Additional keyword arguments for pytorch_lightning.LightningModule.
         """
@@ -53,6 +61,16 @@ class SingleLitModule(BaseLitModule):
             network.output_activation, _partial_=True
         )
 
+        # Get num_classes from network config if not provided
+        if num_classes is None:
+            num_classes = network.metrics.main.get('num_classes', 2)
+        
+        # Get class names or create default
+        if class_names is None:
+            class_names = [f"Class {i}" for i in range(num_classes)]
+        self.class_names = class_names
+        self.num_classes = num_classes
+
         main_metric, valid_metric_best, add_metrics = load_metrics(
             network.metrics
         )
@@ -64,6 +82,10 @@ class SingleLitModule(BaseLitModule):
         self.test_metric = main_metric.clone()
         self.test_add_metrics = add_metrics.clone(postfix='/test')
 
+        # Setup ConfusionMatrixMetric instances after cloning
+        # Need to set split based on which add_metrics collection they're in
+        self._setup_confusion_matrix_metrics()
+
         self.save_hyperparameters(logger=False)
 
     def model_step(self, batch: Any, *args: Any, **kwargs: Any) -> Any:
@@ -71,6 +93,31 @@ class SingleLitModule(BaseLitModule):
         loss = self.loss(logits, batch['label'])
         preds = self.output_activation(logits)
         return loss, preds, batch['label']
+
+    def _setup_confusion_matrix_metrics(self) -> None:
+        """Setup ConfusionMatrixMetric instances from add_metrics.
+        
+        Finds ConfusionMatrixMetric in train/valid/test add_metrics,
+        sets correct split based on which collection they're in,
+        and sets up reference to LightningModule for accessing trainer and logger.
+        """
+        # Setup confusion matrix metrics for train
+        for metric_name, metric in self.train_add_metrics.items():
+            if isinstance(metric, ConfusionMatrixMetric):
+                metric.split = 'train'
+                metric.setup_lightning_module(self)
+        
+        # Setup confusion matrix metrics for valid
+        for metric_name, metric in self.valid_add_metrics.items():
+            if isinstance(metric, ConfusionMatrixMetric):
+                metric.split = 'valid'
+                metric.setup_lightning_module(self)
+        
+        # Setup confusion matrix metrics for test
+        for metric_name, metric in self.test_add_metrics.items():
+            if isinstance(metric, ConfusionMatrixMetric):
+                metric.split = 'test'
+                metric.setup_lightning_module(self)
 
     def on_train_start(self) -> None:
         # by default lightning executes validation step sanity checks before
@@ -93,8 +140,19 @@ class SingleLitModule(BaseLitModule):
             **self.logging_params,
         )
 
-        self.train_add_metrics(preds, targets)
-        self.log_dict(self.train_add_metrics, **self.logging_params)
+        # Update metrics, excluding ConfusionMatrixMetric (handled separately)
+        metrics_to_update = {k: v for k, v in self.train_add_metrics.items() 
+                            if not isinstance(v, ConfusionMatrixMetric)}
+        if metrics_to_update:
+            from torchmetrics import MetricCollection
+            temp_collection = MetricCollection(metrics_to_update)
+            temp_collection(preds, targets)
+            self.log_dict(temp_collection, **self.logging_params)
+        
+        # Update confusion matrix metrics manually (they accumulate during epoch)
+        for metric_name, metric in self.train_add_metrics.items():
+            if isinstance(metric, ConfusionMatrixMetric):
+                metric.update(preds, targets)
 
         # Lightning keeps track of `training_step` outputs and metrics on GPU for
         # optimization purposes. This works well for medium size datasets, but
@@ -103,10 +161,11 @@ class SingleLitModule(BaseLitModule):
         return {'loss': loss}
 
     def on_train_epoch_end(self) -> None:
-        # This method is called at the end of each training epoch
-        # Note: outputs are no longer passed as parameter in v2.0+
-        # If you need outputs, save them as instance attributes in training_step
-        pass
+        # Compute and log confusion matrix metrics manually
+        # (they accumulate predictions during epoch, log in compute())
+        for metric_name, metric in self.train_add_metrics.items():
+            if isinstance(metric, ConfusionMatrixMetric):
+                metric.compute()
 
     def validation_step(self, batch: Any, batch_idx: int) -> Any:
         loss, preds, targets = self.model_step(batch, batch_idx)
@@ -123,8 +182,20 @@ class SingleLitModule(BaseLitModule):
             **self.logging_params,
         )
 
-        self.valid_add_metrics(preds, targets)
-        self.log_dict(self.valid_add_metrics, **self.logging_params)
+        # Update metrics, excluding ConfusionMatrixMetric (handled separately)
+        metrics_to_update = {k: v for k, v in self.valid_add_metrics.items() 
+                            if not isinstance(v, ConfusionMatrixMetric)}
+        if metrics_to_update:
+            from torchmetrics import MetricCollection
+            temp_collection = MetricCollection(metrics_to_update)
+            temp_collection(preds, targets)
+            self.log_dict(temp_collection, **self.logging_params)
+        
+        # Update confusion matrix metrics manually (they accumulate during epoch)
+        for metric_name, metric in self.valid_add_metrics.items():
+            if isinstance(metric, ConfusionMatrixMetric):
+                metric.update(preds, targets)
+        
         return {'loss': loss}
 
     def on_validation_epoch_end(self) -> None:
@@ -140,6 +211,12 @@ class SingleLitModule(BaseLitModule):
             self.valid_metric_best.compute(),
             **logging_params,
         )
+        
+        # Compute and log confusion matrix metrics manually
+        # (they accumulate predictions during epoch, log in compute())
+        for metric_name, metric in self.valid_add_metrics.items():
+            if isinstance(metric, ConfusionMatrixMetric):
+                metric.compute()
 
     def test_step(self, batch: Any, batch_idx: int) -> Any:
         loss, preds, targets = self.model_step(batch, batch_idx)
@@ -154,12 +231,28 @@ class SingleLitModule(BaseLitModule):
             **self.logging_params,
         )
 
-        self.test_add_metrics(preds, targets)
-        self.log_dict(self.test_add_metrics, **self.logging_params)
+        # Update metrics, excluding ConfusionMatrixMetric (handled separately)
+        metrics_to_update = {k: v for k, v in self.test_add_metrics.items() 
+                            if not isinstance(v, ConfusionMatrixMetric)}
+        if metrics_to_update:
+            from torchmetrics import MetricCollection
+            temp_collection = MetricCollection(metrics_to_update)
+            temp_collection(preds, targets)
+            self.log_dict(temp_collection, **self.logging_params)
+        
+        # Update confusion matrix metrics manually (they accumulate during epoch)
+        for metric_name, metric in self.test_add_metrics.items():
+            if isinstance(metric, ConfusionMatrixMetric):
+                metric.update(preds, targets)
+        
         return {'loss': loss}
 
     def on_test_epoch_end(self) -> None:
-        pass
+        # Compute and log confusion matrix metrics manually
+        # (they accumulate predictions during epoch, log in compute())
+        for metric_name, metric in self.test_add_metrics.items():
+            if isinstance(metric, ConfusionMatrixMetric):
+                metric.compute()
 
     def predict_step(
         self, batch: Any, batch_idx: int, dataloader_idx: int = 0

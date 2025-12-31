@@ -4,6 +4,7 @@ from typing import Any
 import torch
 from omegaconf.base import ContainerMetadata, Metadata
 from omegaconf.dictconfig import DictConfig
+from omegaconf.listconfig import ListConfig
 from omegaconf.nodes import AnyNode
 
 from src.utils.env_utils import (
@@ -38,15 +39,58 @@ def register_torch_safe_globals() -> None:
     """
     torch.serialization.add_safe_globals([
         DictConfig,
+        ListConfig,
         ContainerMetadata,
         Metadata,
         AnyNode,
         Any,
         dict,
+        list,
+        int,
+        float,
+        str,
+        bool,
+        tuple,
+        set,
+        frozenset,
         collections.defaultdict,
         collections.OrderedDict,
     ])
 
 
+def patch_torch_load_for_checkpoints() -> None:
+    """Patch torch.load and lightning_fabric to use weights_only=False for checkpoint loading.
+    
+    This is needed for PyTorch 2.6+ where weights_only defaults to True.
+    Patches are applied globally to allow checkpoint loading without errors.
+    """
+    # Patch torch.load
+    _original_torch_load = torch.load
+    
+    def _patched_torch_load(*args, **kwargs):
+        """Patched torch.load that uses weights_only=False for checkpoint loading."""
+        if 'weights_only' not in kwargs:
+            kwargs['weights_only'] = False
+        return _original_torch_load(*args, **kwargs)
+    
+    torch.load = _patched_torch_load
+    
+    # Also patch lightning_fabric if available
+    try:
+        from lightning_fabric.utilities import cloud_io
+        _original_pl_load = cloud_io._load
+        
+        def _patched_pl_load(*args, **kwargs):
+            """Patched lightning_fabric._load that uses weights_only=False."""
+            if 'weights_only' not in kwargs:
+                kwargs['weights_only'] = False
+            return _original_pl_load(*args, **kwargs)
+        
+        cloud_io._load = _patched_pl_load
+    except ImportError:
+        pass
+
+
 # Register on module import
 register_torch_safe_globals()
+patch_torch_load_for_checkpoints()
