@@ -1,0 +1,51 @@
+# Default transform configuration for EEG experiments
+# Common transforms: normalize
+
+train:
+  order: ["normalize"]
+  pad_or_crop:
+    _target_: src.datamodules.components.eeg_transforms.EEGPadOrCrop
+    num_channels: 30
+    signal_length: 2500
+    p: 1.0
+  normalize:
+    _target_: src.datamodules.components.eeg_transforms.EEGNormalize
+    per_channel: true
+    p: 1.0
+
+valid:
+  order: ["normalize"]
+  pad_or_crop:
+    _target_: src.datamodules.components.eeg_transforms.EEGPadOrCrop
+    num_channels: 30
+    signal_length: 2500
+    p: 1.0
+  normalize:
+    _target_: src.datamodules.components.eeg_transforms.EEGNormalize
+    per_channel: true
+    p: 1.0
+
+test:
+  order: ["normalize"]
+  pad_or_crop:
+    _target_: src.datamodules.components.eeg_transforms.EEGPadOrCrop
+    num_channels: 30
+    signal_length: 2500
+    p: 1.0
+  normalize:
+    _target_: src.datamodules.components.eeg_transforms.EEGNormalize
+    per_channel: true
+    p: 1.0
+
+predict:
+  order: ["normalize"]
+  pad_or_crop:
+    _target_: src.datamodules.components.eeg_transforms.EEGPadOrCrop
+    num_channels: 30
+    signal_length: 2500
+    p: 1.0
+  normalize:
+    _target_: src.datamodules.components.eeg_transforms.EEGNormalize
+    per_channel: true
+    p: 1.0
+

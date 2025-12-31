@@ -1,0 +1,26 @@
+# @package _global_
+
+# Cross-validation configuration
+
+# Enable cross-validation
+enabled: false
+
+# Number of folds (ignored for LeaveOneGroupOut, uses number of groups)
+n_splits: 5
+
+# CV strategy: KFold, StratifiedKFold, GroupKFold, StratifiedGroupKFold, LeaveOneGroupOut
+strategy: "StratifiedGroupKFold"
+
+# Shuffle data before splitting (not applicable to LeaveOneGroupOut)
+shuffle: true
+
+# Random state for reproducibility
+random_state: 42
+
+# Group column name (required for GroupKFold, StratifiedGroupKFold, LeaveOneGroupOut)
+# This should match a column in your parquet file (e.g., "subject_id")
+group_column: "subject_id"
+
+# Note: When CV is enabled, datasets.train should point to the combined train+val dataset
+# datasets.valid will be ignored (validation sets are created from CV splits)
+

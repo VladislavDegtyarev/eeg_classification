@@ -1,0 +1,14 @@
+# Default trainer configuration for EEG experiments
+# accelerator, devices, and max_epochs should be specified per experiment
+
+_target_: pytorch_lightning.Trainer
+default_root_dir: ${paths.output_dir}
+min_epochs: 1
+check_val_every_n_epoch: 1
+deterministic: false
+enable_progress_bar: true
+enable_model_summary: false
+log_every_n_steps: 10
+gradient_clip_val: 1.0
+gradient_clip_algorithm: norm
+

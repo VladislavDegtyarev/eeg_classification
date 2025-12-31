@@ -1,9 +1,15 @@
 _target_: src.datamodules.datamodules.SingleDataModule
 
+defaults:
+  - _self_
+  - loaders: eeg_loaders.yaml
+  - transforms: eeg_transforms.yaml
+
+# EEG datasets configuration
+# data_path should be specified per experiment
 datasets:
   train:
     _target_: src.datamodules.datasets.ClassificationDataset
-    data_path: ${paths.data_dir}/classification/v1_train.parquet
     path_column: crop_path
     target_column: target
     read_mode: npy
@@ -12,7 +18,6 @@ datasets:
 
   valid:
     _target_: src.datamodules.datasets.ClassificationDataset
-    data_path: ${paths.data_dir}/classification/v1_valid.parquet
     path_column: crop_path
     target_column: target
     read_mode: npy
@@ -21,92 +26,8 @@ datasets:
 
   test:
     _target_: src.datamodules.datasets.ClassificationDataset
-    data_path: ${paths.data_dir}/classification/v1_valid.parquet
     path_column: crop_path
     target_column: target
     read_mode: npy
     include_names: false
     label_type: "torch.LongTensor"
-
-loaders:
-  train:
-    batch_size: 128
-    shuffle: true
-    num_workers: 0
-    drop_last: true
-    pin_memory: false
-    persistent_workers: false
-
-  valid:
-    batch_size: 128
-    shuffle: false
-    num_workers: 0
-    drop_last: false
-    pin_memory: false
-    persistent_workers: false
-
-  test:
-    batch_size: 128
-    shuffle: false
-    num_workers: 0
-    drop_last: false
-    pin_memory: false
-    persistent_workers: false
-
-  predict:
-    batch_size: 128
-    shuffle: false
-    num_workers: 0
-    drop_last: false
-    pin_memory: false
-    persistent_workers: false
-
-transforms:
-  train:
-    order: ["pad_or_crop", "normalize"]
-    pad_or_crop:
-      _target_: src.datamodules.components.eeg_transforms.EEGPadOrCrop
-      num_channels: 127
-      signal_length: 2500
-      p: 1.0
-    normalize:
-      _target_: src.datamodules.components.eeg_transforms.EEGNormalize
-      per_channel: true
-      p: 1.0
-
-  valid:
-    order: ["pad_or_crop", "normalize"]
-    pad_or_crop:
-      _target_: src.datamodules.components.eeg_transforms.EEGPadOrCrop
-      num_channels: 127
-      signal_length: 2500
-      p: 1.0
-    normalize:
-      _target_: src.datamodules.components.eeg_transforms.EEGNormalize
-      per_channel: true
-      p: 1.0
-
-  test:
-    order: ["pad_or_crop", "normalize"]
-    pad_or_crop:
-      _target_: src.datamodules.components.eeg_transforms.EEGPadOrCrop
-      num_channels: 127
-      signal_length: 2500
-      p: 1.0
-    normalize:
-      _target_: src.datamodules.components.eeg_transforms.EEGNormalize
-      per_channel: true
-      p: 1.0
-
-  predict:
-    order: ["pad_or_crop", "normalize"]
-    pad_or_crop:
-      _target_: src.datamodules.components.eeg_transforms.EEGPadOrCrop
-      num_channels: 127
-      signal_length: 2500
-      p: 1.0
-    normalize:
-      _target_: src.datamodules.components.eeg_transforms.EEGNormalize
-      per_channel: true
-      p: 1.0
-

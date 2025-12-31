@@ -1,0 +1,37 @@
+# Default callbacks configuration for EEG experiments
+# Monitor metrics should be specified per experiment
+
+model_checkpoint:
+  _target_: pytorch_lightning.callbacks.ModelCheckpoint
+  dirpath: ${paths.output_dir}/checkpoints
+  verbose: false
+  save_last: true
+  save_top_k: 5
+  mode: "max"
+  auto_insert_metric_name: false
+  save_weights_only: false
+  every_n_train_steps: null
+  train_time_interval: null
+  every_n_epochs: null
+  save_on_train_epoch_end: null
+
+early_stopping:
+  _target_: pytorch_lightning.callbacks.EarlyStopping
+  min_delta: 5.0e-5
+  patience: 15
+  verbose: false
+  mode: "max"
+  strict: true
+  check_finite: true
+  stopping_threshold: null
+  divergence_threshold: null
+  check_on_train_epoch_end: null
+
+model_summary:
+  _target_: pytorch_lightning.callbacks.ModelSummary
+  max_depth: -1
+
+rich_progress_bar:
+  _target_: pytorch_lightning.callbacks.RichProgressBar
+  leave: true
+

@@ -27,6 +27,9 @@ defaults:
   # debugging config (enable through command line, e.g. `python train.py debug=default)
   - debug: null
 
+  # cross-validation config (for train_cv.py)
+  - cv: null
+
 # task name, determines output directory path
 task_name: "train"
 
