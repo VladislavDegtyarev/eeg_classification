@@ -1,0 +1,33 @@
+model:
+  _target_: src.modules.models.eeg_net.EEGNet
+  num_channels: 127
+  signal_length: 2500
+  num_classes: 2
+  F1: 8
+  F2: 16
+  D: 2
+  kernel_length: 64
+  pool_size: 4
+  dropout_rate: 0.5
+
+loss:
+  _target_: "torch.nn.CrossEntropyLoss"
+
+metrics:
+  main:
+    _target_: "torchmetrics.Accuracy"
+    task: "multiclass"
+    num_classes: 2
+    top_k: 1
+  valid_best:
+    _target_: "torchmetrics.MaxMetric"
+  additional:
+    AUROC:
+      _target_: "torchmetrics.AUROC"
+      task: "multiclass"
+      num_classes: 2
+
+output_activation:
+  _target_: "torch.softmax"
+  dim: 1
+

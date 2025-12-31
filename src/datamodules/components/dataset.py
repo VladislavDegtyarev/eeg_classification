@@ -19,7 +19,7 @@ class BaseDataset(Dataset):
         """BaseDataset.
 
         :param transforms: Transforms.
-        :param read_mode: Image read mode, `pillow` or `cv2`. Default to `pillow`.
+        :param read_mode: Image read mode, `pillow`, `cv2`, or `npy`. Default to `pillow`.
         :param to_gray: Images to gray mode. Default to False.
         """
 
@@ -30,11 +30,25 @@ class BaseDataset(Dataset):
     def _read_image_(self, image: Any) -> np.ndarray:
         """Read image from source.
 
-        :param image: Image source. Could be str, Path or bytes.
-        :return: Loaded image.
+        :param image: Image source. Could be str, Path, bytes, or numpy array.
+        :return: Loaded image as numpy array.
         """
 
-        if self.read_mode == 'pillow':
+        if self.read_mode == 'npy':
+            # Read .npy file (for EEG or other numpy array data)
+            if isinstance(image, (str, Path)):
+                image = np.load(image)
+            elif isinstance(image, np.ndarray):
+                image = image.copy()
+            else:
+                raise ValueError(
+                    f"npy read_mode expects str, Path or np.ndarray, got {type(image)}"
+                )
+            # Ensure 2D or 3D array (for compatibility with image processing)
+            if image.ndim == 1:
+                image = image.reshape(1, -1)
+            return image
+        elif self.read_mode == 'pillow':
             if not isinstance(image, (str, Path)):
                 image = io.BytesIO(image)
             image = np.asarray(Image.open(image).convert('RGB'))
@@ -46,7 +60,7 @@ class BaseDataset(Dataset):
                 image = cv2.imread(image)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         else:
-            raise NotImplementedError('use pillow or cv2')
+            raise NotImplementedError('use pillow, cv2, or npy')
         if self.to_gray:
             image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
             image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
@@ -61,7 +75,27 @@ class BaseDataset(Dataset):
 
         if self.transforms:
             image = self.transforms(image=image)['image']
-        return torch.from_numpy(image).permute(2, 0, 1)
+        
+        # Convert to tensor if needed
+        if isinstance(image, np.ndarray):
+            image = torch.from_numpy(image)
+        elif not isinstance(image, torch.Tensor):
+            image = torch.tensor(image)
+        
+        # Handle different array dimensions
+        if image.ndim == 2:
+            # 2D array (e.g., EEG: channels x length) -> add channel dimension
+            image = image.unsqueeze(0)  # (1, channels, length)
+        elif image.ndim == 3:
+            # Check if it's (H, W, C) format (RGB image) or (C, H, W) already
+            # Assume (H, W, C) if last dimension is 3 or less (common for RGB)
+            if image.shape[2] <= 3:
+                # 3D array (e.g., RGB image: H x W x C) -> permute to (C, H, W)
+                image = image.permute(2, 0, 1)
+            # Otherwise assume it's already in (C, H, W) format
+        # If already 4D or other shape, use as is
+        
+        return image
 
     def __getitem__(self, index: int) -> Any:
         raise NotImplementedError()

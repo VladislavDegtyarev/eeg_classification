@@ -25,7 +25,16 @@ class TransformsWrapper:
                 transforms_cfg.get(augmentation_name), _convert_='object'
             )
             augmentations.append(augmentation)
-        self.augmentations = albumentations.Compose(augmentations)
+        
+        # Check if all transforms are albumentations transforms
+        # If yes, use albumentations.Compose, otherwise use custom composition
+        try:
+            self.augmentations = albumentations.Compose(augmentations)
+            self.use_albumentations = True
+        except (TypeError, AttributeError):
+            # If not all transforms are albumentations, use custom composition
+            self.augmentations = augmentations
+            self.use_albumentations = False
 
     def __call__(self, image: Any, **kwargs: Any) -> Any:
         """Apply TransformsWrapper module.
@@ -37,4 +46,12 @@ class TransformsWrapper:
 
         if isinstance(image, Image.Image):
             image = np.asarray(image)
-        return self.augmentations(image=image, **kwargs)
+        
+        if self.use_albumentations:
+            return self.augmentations(image=image, **kwargs)
+        else:
+            # Custom composition for non-albumentations transforms
+            result = {"image": image, **kwargs}
+            for transform in self.augmentations:
+                result = transform(**result)
+            return result

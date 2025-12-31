@@ -12,30 +12,30 @@ defaults:
 datasets:
   train:
     _target_: src.datamodules.datasets.ClassificationDataset
-    json_path: ${paths.data_dir}/train/data.json
-    data_path: ${paths.data_dir}/train/data.h5
+    data_path: ${paths.data_dir}/train/data.json
+    source_dir: ${paths.data_dir}/train/data.h5
     label_type: "torch.FloatTensor"
 
   valid:
     _target_: src.datamodules.datasets.ClassificationDataset
-    json_path: ${paths.data_dir}/valid/data.json
-    data_path: ${paths.data_dir}/valid/data.h5
+    data_path: ${paths.data_dir}/valid/data.json
+    source_dir: ${paths.data_dir}/valid/data.h5
     label_type: "torch.FloatTensor"
 
   test:
     _target_: src.datamodules.datasets.ClassificationDataset
-    json_path: ${paths.data_dir}/test/data.json
-    data_path: ${paths.data_dir}/test/data.h5
+    data_path: ${paths.data_dir}/test/data.json
+    source_dir: ${paths.data_dir}/test/data.h5
     label_type: "torch.FloatTensor"
 
   predict:
     dataset1:
       _target_: src.datamodules.datasets.ClassificationDataset
-      json_path: ${paths.data_dir}/predict/data1.json
-      data_path: ${paths.data_dir}/predict/data1.h5
+      data_path: ${paths.data_dir}/predict/data1.json
+      source_dir: ${paths.data_dir}/predict/data1.h5
       label_type: "torch.FloatTensor"
     dataset2:
       _target_: src.datamodules.datasets.ClassificationDataset
-      json_path: ${paths.data_dir}/predict/data2.json
-      data_path: ${paths.data_dir}/predict/data2.h5
+      data_path: ${paths.data_dir}/predict/data2.json
+      source_dir: ${paths.data_dir}/predict/data2.h5
       label_type: "torch.FloatTensor"

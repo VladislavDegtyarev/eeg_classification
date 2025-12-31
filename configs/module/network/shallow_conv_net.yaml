@@ -1,0 +1,35 @@
+model:
+  _target_: src.modules.models.shallow_conv_net.ShallowConvNet
+  num_channels: 127
+  signal_length: 2500
+  num_classes: 2
+  out_channels: 32
+  kernel_size: 25
+  pool_size: 75
+  pool_stride: 15
+  dropout_rate: 0.15
+
+loss:
+  _target_: "src.modules.losses.FocalLoss"
+  gamma: 2.0
+  alpha: 1.0
+  reduction: "mean"
+
+metrics:
+  main:
+    _target_: "torchmetrics.Accuracy"
+    task: "multiclass"
+    num_classes: 2
+    top_k: 1
+  valid_best:
+    _target_: "torchmetrics.MaxMetric"
+  additional:
+    AUROC:
+      _target_: "torchmetrics.AUROC"
+      task: "multiclass"
+      num_classes: 2
+
+output_activation:
+  _target_: "torch.softmax"
+  dim: 1
+

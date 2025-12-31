@@ -1,0 +1,321 @@
+# @package _global_
+
+# Complete experiment config for EEG multiclass classification without defaults
+
+# Task name, determines output directory path
+task_name: "eye-state_multiclass_classification"
+
+# Tags to help you identify your experiments
+tags: ["eeg", "multiclass", "classification", "eegnet"]
+
+# Set False to skip model training
+train: true
+
+# Evaluate on test set, using best model weights achieved during training
+test: true
+save_state_dict: true
+
+# Simply provide checkpoint path to resume training
+ckpt_path: null
+
+# Seed for random number generators in pytorch, numpy and python.random
+seed: 42
+
+# Name of the run, accessed by loggers
+name: "eeg-multiclass-classification"
+
+# Paths configuration
+paths:
+  root_dir: ${oc.env:PROJECT_ROOT}
+  data_dir: ${paths.root_dir}/data/
+  log_dir: ${paths.root_dir}/logs/
+  output_dir: ${hydra:runtime.output_dir}
+  work_dir: ${hydra:runtime.cwd}
+
+# Hydra configuration
+hydra:
+  defaults:
+    - override hydra_logging: colorlog
+    - override job_logging: colorlog
+  run:
+    dir: ${paths.log_dir}/${task_name}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  sweep:
+    dir: ${paths.log_dir}/${task_name}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+
+# Extras configuration
+extras:
+  ignore_warnings: false
+  enforce_tags: true
+  print_config: true
+  plugins: null
+  state_dict_saving_params:
+    symbols: 6
+    exceptions: ["loss"]
+  predictions_saving_params:
+    output_format: "json"
+
+# DataModule configuration
+datamodule:
+  _target_: src.datamodules.datamodules.SingleDataModule
+
+  datasets:
+    train:
+      _target_: src.datamodules.datasets.ClassificationDataset
+      data_path: ${paths.data_dir}/classification/processed/crops_500_30_v1_state_train.parquet
+      path_column: crop_path
+      target_column: target
+      read_mode: npy
+      include_names: false
+      label_type: "torch.LongTensor"
+
+    valid:
+      _target_: src.datamodules.datasets.ClassificationDataset
+      data_path: ${paths.data_dir}/classification/processed/crops_500_30_v1_state_valid.parquet
+      path_column: crop_path
+      target_column: target
+      read_mode: npy
+      include_names: false
+      label_type: "torch.LongTensor"
+
+    test:
+      _target_: src.datamodules.datasets.ClassificationDataset
+      data_path: ${paths.data_dir}/classification/processed/crops_500_30_v1_state_valid.parquet
+      path_column: crop_path
+      target_column: target
+      read_mode: npy
+      include_names: false
+      label_type: "torch.LongTensor"
+
+  loaders:
+    train:
+      batch_size: 128
+      shuffle: true
+      num_workers: 0
+      drop_last: true
+      pin_memory: false
+      persistent_workers: false
+
+    valid:
+      batch_size: 128
+      shuffle: false
+      num_workers: 0
+      drop_last: false
+      pin_memory: false
+      persistent_workers: false
+
+    test:
+      batch_size: 128
+      shuffle: false
+      num_workers: 0
+      drop_last: false
+      pin_memory: false
+      persistent_workers: false
+
+    predict:
+      batch_size: 128
+      shuffle: false
+      num_workers: 0
+      drop_last: false
+      pin_memory: false
+      persistent_workers: false
+
+  transforms:
+    train:
+      order: ["pad_or_crop", "normalize"]
+      pad_or_crop:
+        _target_: src.datamodules.components.eeg_transforms.EEGPadOrCrop
+        num_channels: 30
+        signal_length: 2500
+        p: 1.0
+      normalize:
+        _target_: src.datamodules.components.eeg_transforms.EEGNormalize
+        per_channel: true
+        p: 1.0
+
+    valid:
+      order: ["pad_or_crop", "normalize"]
+      pad_or_crop:
+        _target_: src.datamodules.components.eeg_transforms.EEGPadOrCrop
+        num_channels: 30
+        signal_length: 2500
+        p: 1.0
+      normalize:
+        _target_: src.datamodules.components.eeg_transforms.EEGNormalize
+        per_channel: true
+        p: 1.0
+
+    test:
+      order: ["pad_or_crop", "normalize"]
+      pad_or_crop:
+        _target_: src.datamodules.components.eeg_transforms.EEGPadOrCrop
+        num_channels: 30
+        signal_length: 2500
+        p: 1.0
+      normalize:
+        _target_: src.datamodules.components.eeg_transforms.EEGNormalize
+        per_channel: true
+        p: 1.0
+
+    predict:
+      order: ["pad_or_crop", "normalize"]
+      pad_or_crop:
+        _target_: src.datamodules.components.eeg_transforms.EEGPadOrCrop
+        num_channels: 30
+        signal_length: 2500
+        p: 1.0
+      normalize:
+        _target_: src.datamodules.components.eeg_transforms.EEGNormalize
+        per_channel: true
+        p: 1.0
+
+# Module configuration
+module:
+  _target_: src.modules.single_module.SingleLitModule
+
+  network:
+    model:
+      _target_: src.modules.models.small_eeg_net.SmallEEGNet
+      num_channels: 30
+      signal_length: 2500
+      num_classes: 4
+
+    loss:
+      _target_: "torch.nn.CrossEntropyLoss"
+      # weight: [1.0, 3.0, 3.0, 3.0]
+
+    metrics:
+      main:
+        _target_: "torchmetrics.Accuracy"
+        task: "multiclass"
+        num_classes: 4
+        top_k: 1
+      valid_best:
+        _target_: "torchmetrics.MaxMetric"
+      additional:
+        AUROC:
+          _target_: "torchmetrics.AUROC"
+          task: "multiclass"
+          num_classes: 4
+          average: "macro"
+        F1:
+          _target_: "torchmetrics.F1Score"
+          task: "multiclass"
+          num_classes: 4
+          average: "macro"
+        Precision:
+          _target_: "torchmetrics.Precision"
+          task: "multiclass"
+          num_classes: 4
+          average: "macro"
+        Recall:
+          _target_: "torchmetrics.Recall"
+          task: "multiclass"
+          num_classes: 4
+          average: "macro"
+
+    output_activation:
+      _target_: "torch.softmax"
+      dim: 1
+
+  optimizer:
+    _target_: torch.optim.AdamW
+    lr: 0.0005
+    weight_decay: 0.001
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+
+  scheduler:
+    scheduler:
+      _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+      mode: "min"
+      factor: 0.5
+      min_lr: 1.0e-7
+      patience: 1000
+    extras:
+      monitor: CrossEntropyLoss/valid
+      interval: "epoch"
+      frequency: 1
+
+  logging:
+    on_step: true
+    on_epoch: true
+    sync_dist: false
+    prog_bar: true
+
+# Trainer configuration
+trainer:
+  _target_: pytorch_lightning.Trainer
+  default_root_dir: ${paths.output_dir}
+  min_epochs: 1
+  max_epochs: 50
+  accelerator: cpu
+  devices: 1
+  check_val_every_n_epoch: 1
+  deterministic: false
+  enable_progress_bar: true
+  enable_model_summary: false
+  log_every_n_steps: 10
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: norm
+
+# Callbacks configuration
+callbacks:
+  model_checkpoint:
+    _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints
+    filename: ${replace:"epoch{epoch:03d}-loss_valid{__loss__/valid:.4f}-metric_valid{__metric__/valid:.4f}"}
+    monitor: ${replace:"__metric__/valid"}
+    verbose: false
+    save_last: true
+    save_top_k: 5
+    mode: "max"
+    auto_insert_metric_name: false
+    save_weights_only: false
+    every_n_train_steps: null
+    train_time_interval: null
+    every_n_epochs: null
+    save_on_train_epoch_end: null
+
+  early_stopping:
+    _target_: pytorch_lightning.callbacks.EarlyStopping
+    monitor: ${replace:"__metric__/valid"}
+    min_delta: 5.0e-5
+    patience: 15
+    verbose: false
+    mode: "max"
+    strict: true
+    check_finite: true
+    stopping_threshold: null
+    divergence_threshold: null
+    check_on_train_epoch_end: null
+
+  model_summary:
+    _target_: pytorch_lightning.callbacks.ModelSummary
+    max_depth: -1
+
+  rich_progress_bar:
+    _target_: pytorch_lightning.callbacks.RichProgressBar
+    leave: true
+
+# Logger configuration
+logger:
+  csv:
+    _target_: pytorch_lightning.loggers.csv_logs.CSVLogger
+    save_dir: "${paths.output_dir}"
+    name: "csv/"
+    prefix: ""
+
+  wandb:
+    _target_: pytorch_lightning.loggers.wandb.WandbLogger
+    name: "${name}"
+    save_dir: "${paths.output_dir}"
+    offline: false
+    id: null
+    project: "eeg-classification"
+    log_model: false
+    prefix: ""
+    group: ""
+    tags: ${tags}
+    job_type: ""
+

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
+import pandas as pd
 import torch
 
 from src.datamodules.components.dataset import BaseDataset
@@ -14,24 +15,30 @@ from src.datamodules.components.parse import parse_image_paths
 class ClassificationDataset(BaseDataset):
     def __init__(
         self,
+        data_path: str | None = None,
         json_path: str | None = None,
         txt_path: str | None = None,
-        data_path: str | None = None,
+        parquet_path: str | None = None,
         transforms: Callable | None = None,
         read_mode: str = 'pillow',
         to_gray: bool = False,
         include_names: bool = False,
         shuffle_on_load: bool = True,
         label_type: str = 'torch.LongTensor',
+        path_column: str | None = None,
+        target_column: str | None = None,
+        source_dir: str | None = None,
         **kwargs: Any,
     ) -> None:
         """ClassificationDataset.
 
-        :param json_path: Path to annotation json.
-        :param txt_path: Path to annotation txt.
-        :param data_path: Path to HDF5 file or images source dir.
+        :param data_path: Path to annotation file (json, txt, or parquet) or HDF5 file.
+            File type is determined by extension. Preferred over json_path/txt_path/parquet_path.
+        :param json_path: (Deprecated) Path to annotation json. Use data_path instead.
+        :param txt_path: (Deprecated) Path to annotation txt. Use data_path instead.
+        :param parquet_path: (Deprecated) Path to parquet file. Use data_path instead.
         :param transforms: Transforms.
-        :param read_mode: Image read mode, `pillow` or `cv2`. Default to `pillow`.
+        :param read_mode: Image read mode, `pillow`, `cv2`, or `npy`. Default to `pillow`.
         :param to_gray: Images to gray mode. Default to False.
         :param include_names: If True, then `__getitem__` method would return image
             name/path value with key `name`. Default to False.
@@ -39,27 +46,81 @@ class ClassificationDataset(BaseDataset):
             to avoid the case when Dataset slice contains only one class due to
             annotations dict keys order. Default to True.
         :param label_type: Label torch.tensor type. Default to torch.FloatTensor.
+        :param path_column: Column name in parquet file containing file paths.
+            Required when data_path points to parquet file.
+        :param target_column: Column name in parquet file containing labels.
+            Required when data_path points to parquet file.
+        :param source_dir: Directory containing source files (images, .npy files, etc.).
+            If None and data_path is not HDF5, files are expected to be at paths
+            specified in annotations.
         :param kwargs: Additional keyword arguments for H5PyFile class.
         """
 
         super().__init__(transforms, read_mode, to_gray)
-        if (json_path and txt_path) or (not json_path and not txt_path):
-            raise ValueError('Requires json_path or txt_path, but not both.')
+        
+        # Determine annotation file path (backward compatibility)
+        if data_path:
+            annotation_path = Path(data_path)
+        elif parquet_path:
+            annotation_path = Path(parquet_path)
         elif json_path:
-            json_path = Path(json_path)
-            if not json_path.is_file():
-                raise RuntimeError(f"'{json_path}' must be a file.")
-            with open(json_path) as json_file:
-                self.annotation = json.load(json_file)
+            annotation_path = Path(json_path)
+        elif txt_path:
+            annotation_path = Path(txt_path)
         else:
-            txt_path = Path(txt_path)
-            if not txt_path.is_file():
-                raise RuntimeError(f"'{txt_path}' must be a file.")
+            raise ValueError(
+                "One of data_path, json_path, txt_path, or parquet_path must be provided."
+            )
+        
+        if not annotation_path.exists():
+            raise RuntimeError(f"'{annotation_path}' does not exist.")
+        
+        suffix = annotation_path.suffix.lower()
+        
+        # Handle annotation files
+        if suffix == '.parquet':
+            if not path_column or not target_column:
+                raise ValueError(
+                    "path_column and target_column must be provided when using parquet file"
+                )
+            df = pd.read_parquet(annotation_path)
+            if path_column not in df.columns:
+                raise ValueError(f"Column '{path_column}' not found in parquet file.")
+            if target_column not in df.columns:
+                raise ValueError(f"Column '{target_column}' not found in parquet file.")
+            self.annotation = {
+                str(row[path_column]): row[target_column]
+                for _, row in df.iterrows()
+            }
+        elif suffix == '.json':
+            with open(annotation_path) as json_file:
+                self.annotation = json.load(json_file)
+        elif suffix == '.txt':
             self.annotation = {}
-            with open(txt_path) as txt_file:
+            with open(annotation_path) as txt_file:
                 for line in txt_file:
                     _, label, path = line[:-1].split('\t')
                     self.annotation[path] = label
+        else:
+            raise ValueError(
+                f"Unsupported annotation file type: {suffix}. "
+                "Supported types: .json, .txt, .parquet"
+            )
+        
+        # Handle source directory or HDF5 file
+        self.data_file = None
+        if source_dir:
+            source_path = Path(source_dir)
+            if source_path.is_file() and source_path.suffix.lower() == '.h5':
+                # HDF5 file for data storage
+                self.data_file = H5PyFile(str(source_path), **kwargs)
+                self.data_path = Path('')
+            else:
+                # Regular directory with files
+                self.data_path = source_path
+        else:
+            # If no source_dir provided, assume files are at paths from annotations
+            self.data_path = Path('')
 
         self.keys = list(self.annotation)
         if shuffle_on_load:
@@ -68,14 +129,6 @@ class ClassificationDataset(BaseDataset):
         self.include_names = include_names
         self.label_type = label_type
 
-        data_path = '' if data_path is None else data_path
-        self.data_path = data_path = Path(data_path)
-        self.data_file = None
-        if data_path.is_file():
-            if data_path.suffix != '.h5':
-                raise RuntimeError(f"'{data_path}' must be a h5 file.")
-            self.data_file = H5PyFile(str(data_path), **kwargs)
-
     def __len__(self) -> int:
         return len(self.keys)
 
@@ -83,7 +136,7 @@ class ClassificationDataset(BaseDataset):
         key = self.keys[index]
         data_file = self.data_file
         if data_file is None:
-            source = self.data_path / key
+            source = self.data_path / key if self.data_path else Path(key)
         else:
             source = data_file[key]
         image = self._read_image_(source)

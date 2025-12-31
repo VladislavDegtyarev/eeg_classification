@@ -133,10 +133,12 @@ class SingleLitModule(BaseLitModule):
         # log `valid_metric_best` as a value through `.compute()` method, instead
         # of as a metric object otherwise metric would be reset by lightning
         # after each epoch
+        # In epoch_end hooks, on_step must be False
+        logging_params = {**self.logging_params, 'on_step': False}
         self.log(
             f'{self.valid_metric.__class__.__name__}/valid_best',
             self.valid_metric_best.compute(),
-            **self.logging_params,
+            **logging_params,
         )
 
     def test_step(self, batch: Any, batch_idx: int) -> Any:
