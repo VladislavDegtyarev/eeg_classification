@@ -7,7 +7,7 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = ["pynvml (==13.0.1)", "matplotlib (==3.10.8)", "scikit-learn (==1.8.0)", "segmentation-models-pytorch (==0.5.0)", "timm (==1.0.22)", "sh (==2.2.2)", "nvidia-ml-py (==13.590.44)"]
+dependencies = ["matplotlib (==3.10.8)", "scikit-learn (==1.8.0)", "segmentation-models-pytorch (==0.5.0)", "timm (==1.0.22)", "sh (==2.2.2)", "nvidia-ml-py (==13.590.44)", "mne (==1.11.0)", "pyarrow (==22.0.0)", "h5py (>=3.15.1,<4.0.0)", "pymatreader (>=1.1.0,<2.0.0)"]
 
 [project.optional-dependencies]
 core = [
@@ -22,6 +22,14 @@ core = [
     "nvidia-ml-py>=13.590.44",
     "matplotlib>=3.10.8",
     "scikit-learn>=1.8.0",
+    "pyarrow>=22.0.0"
+]
+analysis = [
+    "mne>=1.1.0",
+    "h5py>=3.15.1",
+    "pymatreader>=1.1.0",
+    "jupyter>=1.1.1",
+    "plotly>=6.5.0"
 ]
 data = [
     "numpy>=2.3.5",
