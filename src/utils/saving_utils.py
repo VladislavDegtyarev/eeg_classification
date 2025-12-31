@@ -103,22 +103,67 @@ def save_predictions_from_dataloader(
     """
 
     if path.suffix == '.csv':
-        with open(path, 'w') as csv_file:
-            writer = csv.writer(csv_file)
-            for batch in predictions:
-                keys = list(batch.keys())
-                batch_size = len(batch[keys[0]])
-                for i in range(batch_size):
-                    row = {key: batch[key][i].tolist() for key in keys}
-                    writer.writerow(row)
+        # Collect all rows first to determine fieldnames
+        all_rows = []
+        for batch in predictions:
+            # Separate scalar keys (like 'fold') from array keys
+            scalar_keys = []
+            array_keys = []
+            for key in batch.keys():
+                value = batch[key]
+                if isinstance(value, (int, float, str, bool)):
+                    scalar_keys.append(key)
+                else:
+                    array_keys.append(key)
+            
+            if not array_keys:
+                # If no array keys, skip this batch
+                continue
+                
+            batch_size = len(batch[array_keys[0]])
+            for i in range(batch_size):
+                # Process array keys (convert to list)
+                row = {key: batch[key][i].tolist() if hasattr(batch[key][i], 'tolist') else batch[key][i] for key in array_keys}
+                # Add scalar keys as-is (they're the same for all items in batch)
+                for key in scalar_keys:
+                    row[key] = batch[key]
+                all_rows.append(row)
+        
+        if all_rows:
+            fieldnames = list(all_rows[0].keys())
+            with open(path, 'w', newline='') as csv_file:
+                writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(all_rows)
 
     elif path.suffix == '.json':
         processed_predictions = {}
         for batch in predictions:
-            keys = [key for key in batch.keys() if key != 'names']
-            batch_size = len(batch[keys[0]])
+            # Separate scalar keys (like 'fold') from array keys
+            scalar_keys = []
+            array_keys = []
+            for key in batch.keys():
+                if key == 'names':
+                    continue
+                # Check if it's a scalar (int, float, str) or array-like
+                value = batch[key]
+                if isinstance(value, (int, float, str, bool)):
+                    scalar_keys.append(key)
+                else:
+                    array_keys.append(key)
+            
+            if not array_keys:
+                # If no array keys, skip this batch or handle differently
+                continue
+                
+            batch_size = len(batch[array_keys[0]])
             for i in range(batch_size):
-                item = {key: batch[key][i].tolist() for key in keys}
+                # Process array keys (convert to list)
+                item = {key: batch[key][i].tolist() if hasattr(batch[key][i], 'tolist') else batch[key][i] for key in array_keys}
+                # Add scalar keys as-is (they're the same for all items in batch)
+                for key in scalar_keys:
+                    item[key] = batch[key]
+                
                 if 'names' in batch.keys():
                     processed_predictions[batch['names'][i]] = item
                 else:
