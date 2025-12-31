@@ -1,0 +1,147 @@
+# @package _global_
+
+# EEG Multiclass Classification with Cross-Validation Experiment Config
+# Uses EEG-specific defaults for loaders, transforms, optimizer, scheduler, logging, trainer, callbacks, and logger
+
+defaults:
+  - override /datamodule: eeg.yaml
+  - override /module: eeg_single.yaml
+  - override /trainer: eeg_default.yaml
+  - override /callbacks: eeg_default.yaml
+  - override /logger: eeg_default.yaml
+  - override /paths: default.yaml
+  - override /extras: default.yaml
+  - override /hydra: default.yaml
+
+# Task name, determines output directory path
+task_name: "eye-state_multiclass_classification_cv"
+
+# Tags to help you identify your experiments
+tags: ["eeg", "multiclass", "classification", "eegnet", "cv"]
+
+# Set False to skip model training
+train: true
+
+# Evaluate on test set, using best model weights achieved during training
+test: true
+save_state_dict: true
+
+# Simply provide checkpoint path to resume training
+ckpt_path: null
+
+# Seed for random number generators in pytorch, numpy and python.random
+seed: 42
+
+# Name of the run, accessed by loggers (includes date and will have _fold suffix for CV)
+name: "eeg-multiclass-classification-cv_${now:%Y-%m-%d}_${now:%H-%M}"
+
+# Cross-validation configuration
+cv:
+  enabled: true
+  n_splits: 5  # Ignored for LeaveOneGroupOut
+  strategy: "StratifiedGroupKFold"  # or "LeaveOneGroupOut"
+  shuffle: true
+  random_state: 42
+  group_column: "subject_id"
+
+# DataModule configuration
+# Note: datasets.train should point to the COMBINED train+val dataset
+# datasets.valid will be ignored when CV is enabled
+# Uses eeg.yaml defaults for loaders and transforms
+datamodule:
+  _target_: src.datamodules.cv_datamodule.CrossValidationDataModule
+  cv: ${cv}
+
+  datasets:
+    train:
+      _target_: src.datamodules.datasets.ClassificationDataset
+      # IMPORTANT: This should be the combined train+val dataset
+      data_path: ${paths.data_dir}/classification/processed/crops_500_30_v1_state_train.parquet
+      path_column: crop_path
+      target_column: target
+      read_mode: npy
+      include_names: false
+      label_type: "torch.LongTensor"
+
+    # valid is ignored when CV is enabled, but kept for compatibility
+    valid:
+      _target_: src.datamodules.datasets.ClassificationDataset
+      data_path: ${paths.data_dir}/classification/processed/crops_500_30_v1_state_valid.parquet
+      path_column: crop_path
+      target_column: target
+      read_mode: npy
+      include_names: false
+      label_type: "torch.LongTensor"
+
+    test:
+      _target_: src.datamodules.datasets.ClassificationDataset
+      data_path: ${paths.data_dir}/classification/processed/crops_500_30_v1_state_valid.parquet
+      path_column: crop_path
+      target_column: target
+      read_mode: npy
+      include_names: false
+      label_type: "torch.LongTensor"
+
+# Module configuration
+# Uses eeg_single.yaml defaults for optimizer, scheduler, and logging
+module:
+
+  network:
+    model:
+      _target_: src.modules.models.small_eeg_net.SmallEEGNet
+      num_channels: 30
+      signal_length: 2500
+      num_classes: 4
+
+    loss:
+      _target_: "torch.nn.CrossEntropyLoss"
+
+    metrics:
+      main:
+        _target_: "torchmetrics.Accuracy"
+        task: "multiclass"
+        num_classes: 4
+        top_k: 1
+      valid_best:
+        _target_: "torchmetrics.MaxMetric"
+      additional:
+        AUROC:
+          _target_: "torchmetrics.AUROC"
+          task: "multiclass"
+          num_classes: 4
+          average: "macro"
+        F1:
+          _target_: "torchmetrics.F1Score"
+          task: "multiclass"
+          num_classes: 4
+          average: "macro"
+        Precision:
+          _target_: "torchmetrics.Precision"
+          task: "multiclass"
+          num_classes: 4
+          average: "macro"
+        Recall:
+          _target_: "torchmetrics.Recall"
+          task: "multiclass"
+          num_classes: 4
+          average: "macro"
+
+    output_activation:
+      _target_: "torch.softmax"
+      dim: 1
+
+# Trainer configuration - only experiment-specific overrides
+trainer:
+  max_epochs: 2
+  accelerator: gpu
+  devices: 1
+  num_sanity_val_steps: 0  # Disable sanity checks to prevent Lightning from accessing dataloaders before setup_fold() completes
+
+# Callbacks configuration - only experiment-specific overrides
+callbacks:
+  model_checkpoint:
+    filename: ${replace:"epoch{epoch:03d}-loss_valid{__loss__/valid:.4f}-metric_valid{__metric__/valid_epoch:.4f}"}
+    monitor: ${replace:"__metric__/valid_epoch"}
+
+  early_stopping:
+    monitor: ${replace:"__metric__/valid_epoch"}
