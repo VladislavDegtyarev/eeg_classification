@@ -75,6 +75,7 @@ celerybeat.pid
 *.sage.py
 target/
 /site
+todo.md
 
 # Data, Models & outputs
 *.h5
