@@ -164,6 +164,54 @@ def train(cfg: DictConfig) -> tuple[dict, dict]:
             **cfg.extras.state_dict_saving_params,
         )
 
+    # Save predictions for dataloaders using best checkpoint
+    if cfg.get('save_predictions'):
+        log.info('Starting saving predictions!')
+        best_ckpt_path = trainer.checkpoint_callback.best_model_path if trainer.checkpoint_callback else ''
+        if best_ckpt_path == '':
+            log.warning(
+                'Best ckpt not found! Using current weights for predictions...'
+            )
+            best_ckpt_path = None
+        
+        predictions_params = cfg.extras.get('predictions_saving_params', {})
+        dataloaders_to_save = predictions_params.get('dataloaders', ['train', 'valid', 'test'])
+        predictions_base_dir = f'{cfg.paths.output_dir}/predictions'
+        
+        # Map dataloader names to methods
+        dataloader_methods = {
+            'train': datamodule.train_dataloader,
+            'valid': datamodule.val_dataloader,
+            'test': datamodule.test_dataloader,
+        }
+        
+        # Save predictions for each dataloader from config
+        for dataloader_name in dataloaders_to_save:
+            if dataloader_name not in dataloader_methods:
+                log.warning(f'Unknown dataloader name: {dataloader_name}. Skipping...')
+                continue
+            
+            try:
+                log.info(f'Generating predictions on {dataloader_name} set...')
+                dataloader = dataloader_methods[dataloader_name]()
+                predictions = trainer.predict(
+                    model=model,
+                    dataloaders=dataloader,
+                    ckpt_path=best_ckpt_path,
+                )
+                if predictions:
+                    predictions_dir = f'{predictions_base_dir}/{dataloader_name}'
+                    # Create a copy of predictions_params without 'dataloaders' key
+                    save_params = {k: v for k, v in predictions_params.items() if k != 'dataloaders'}
+                    utils.save_predictions(
+                        predictions=predictions,
+                        dirname=predictions_dir,
+                        **save_params,
+                    )
+                    log.info(f'Saved {dataloader_name} predictions to: {predictions_dir}')
+            except Exception as e:
+                log.warning(f'Failed to generate {dataloader_name} predictions: {e}')
+
     # merge train and test metrics
     metric_dict = {**train_metrics, **test_metrics}
 
