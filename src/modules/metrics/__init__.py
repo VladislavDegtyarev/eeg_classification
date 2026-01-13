@@ -1,8 +1,10 @@
 from src.modules.metrics.components.classification import (
+    MAP,
     MRR,
     NDCG,
     Accuracy,
     BalancedAccuracy,
+    MeanAveragePrecision,
     PrecisionAtRecall,
     SentiMRR,
 )

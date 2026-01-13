@@ -8,7 +8,10 @@ from torch import nn
 from src.modules.components.lit_module import BaseLitModule
 from src.modules.losses import load_loss
 from src.modules.metrics import load_metrics
-from src.modules.metrics.components.classification import ConfusionMatrixMetric
+from src.modules.metrics.components.classification import (
+    ConfusionMatrixMetric,
+    NegativeLogLikelihood,
+)
 from src.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -95,27 +98,27 @@ class SingleLitModule(BaseLitModule):
         return loss, preds, batch['label']
 
     def _setup_confusion_matrix_metrics(self) -> None:
-        """Setup ConfusionMatrixMetric instances from add_metrics.
+        """Setup ConfusionMatrixMetric and NegativeLogLikelihood instances from add_metrics.
         
-        Finds ConfusionMatrixMetric in train/valid/test add_metrics,
+        Finds ConfusionMatrixMetric and NegativeLogLikelihood in train/valid/test add_metrics,
         sets correct split based on which collection they're in,
         and sets up reference to LightningModule for accessing trainer and logger.
         """
-        # Setup confusion matrix metrics for train
+        # Setup confusion matrix and NLL metrics for train
         for metric_name, metric in self.train_add_metrics.items():
-            if isinstance(metric, ConfusionMatrixMetric):
+            if isinstance(metric, (ConfusionMatrixMetric, NegativeLogLikelihood)):
                 metric.split = 'train'
                 metric.setup_lightning_module(self)
         
-        # Setup confusion matrix metrics for valid
+        # Setup confusion matrix and NLL metrics for valid
         for metric_name, metric in self.valid_add_metrics.items():
-            if isinstance(metric, ConfusionMatrixMetric):
+            if isinstance(metric, (ConfusionMatrixMetric, NegativeLogLikelihood)):
                 metric.split = 'valid'
                 metric.setup_lightning_module(self)
         
-        # Setup confusion matrix metrics for test
+        # Setup confusion matrix and NLL metrics for test
         for metric_name, metric in self.test_add_metrics.items():
-            if isinstance(metric, ConfusionMatrixMetric):
+            if isinstance(metric, (ConfusionMatrixMetric, NegativeLogLikelihood)):
                 metric.split = 'test'
                 metric.setup_lightning_module(self)
 
@@ -140,18 +143,18 @@ class SingleLitModule(BaseLitModule):
             **self.logging_params,
         )
 
-        # Update metrics, excluding ConfusionMatrixMetric (handled separately)
+        # Update metrics, excluding ConfusionMatrixMetric and NegativeLogLikelihood (handled separately)
         metrics_to_update = {k: v for k, v in self.train_add_metrics.items() 
-                            if not isinstance(v, ConfusionMatrixMetric)}
+                            if not isinstance(v, (ConfusionMatrixMetric, NegativeLogLikelihood))}
         if metrics_to_update:
             from torchmetrics import MetricCollection
             temp_collection = MetricCollection(metrics_to_update)
             temp_collection(preds, targets)
             self.log_dict(temp_collection, **self.logging_params)
         
-        # Update confusion matrix metrics manually (they accumulate during epoch)
+        # Update confusion matrix and NLL metrics manually (they accumulate during epoch)
         for metric_name, metric in self.train_add_metrics.items():
-            if isinstance(metric, ConfusionMatrixMetric):
+            if isinstance(metric, (ConfusionMatrixMetric, NegativeLogLikelihood)):
                 metric.update(preds, targets)
 
         # Lightning keeps track of `training_step` outputs and metrics on GPU for
@@ -161,10 +164,27 @@ class SingleLitModule(BaseLitModule):
         return {'loss': loss}
 
     def on_train_epoch_end(self) -> None:
-        # Compute and log confusion matrix metrics manually
+        # Log learning rate
+        optimizer = self.optimizers()
+        if optimizer is not None:
+            # Handle case where optimizer might be a list
+            if isinstance(optimizer, (list, tuple)):
+                optimizer = optimizer[0]
+            if isinstance(optimizer, torch.optim.Optimizer):
+                current_lr = optimizer.param_groups[0]['lr']
+                self.log(
+                    'learning_rate',
+                    current_lr,
+                    on_step=False,
+                    on_epoch=True,
+                    prog_bar=True,
+                    logger=True,
+                    sync_dist=self.logging_params.get('sync_dist', False),
+                )
+        # Compute and log confusion matrix and NLL metrics manually
         # (they accumulate predictions during epoch, log in compute())
         for metric_name, metric in self.train_add_metrics.items():
-            if isinstance(metric, ConfusionMatrixMetric):
+            if isinstance(metric, (ConfusionMatrixMetric, NegativeLogLikelihood)):
                 metric.compute()
 
     def validation_step(self, batch: Any, batch_idx: int) -> Any:
@@ -182,18 +202,18 @@ class SingleLitModule(BaseLitModule):
             **self.logging_params,
         )
 
-        # Update metrics, excluding ConfusionMatrixMetric (handled separately)
+        # Update metrics, excluding ConfusionMatrixMetric and NegativeLogLikelihood (handled separately)
         metrics_to_update = {k: v for k, v in self.valid_add_metrics.items() 
-                            if not isinstance(v, ConfusionMatrixMetric)}
+                            if not isinstance(v, (ConfusionMatrixMetric, NegativeLogLikelihood))}
         if metrics_to_update:
             from torchmetrics import MetricCollection
             temp_collection = MetricCollection(metrics_to_update)
             temp_collection(preds, targets)
             self.log_dict(temp_collection, **self.logging_params)
         
-        # Update confusion matrix metrics manually (they accumulate during epoch)
+        # Update confusion matrix and NLL metrics manually (they accumulate during epoch)
         for metric_name, metric in self.valid_add_metrics.items():
-            if isinstance(metric, ConfusionMatrixMetric):
+            if isinstance(metric, (ConfusionMatrixMetric, NegativeLogLikelihood)):
                 metric.update(preds, targets)
         
         return {'loss': loss}
@@ -212,10 +232,10 @@ class SingleLitModule(BaseLitModule):
             **logging_params,
         )
         
-        # Compute and log confusion matrix metrics manually
+        # Compute and log confusion matrix and NLL metrics manually
         # (they accumulate predictions during epoch, log in compute())
         for metric_name, metric in self.valid_add_metrics.items():
-            if isinstance(metric, ConfusionMatrixMetric):
+            if isinstance(metric, (ConfusionMatrixMetric, NegativeLogLikelihood)):
                 metric.compute()
 
     def test_step(self, batch: Any, batch_idx: int) -> Any:
@@ -231,27 +251,27 @@ class SingleLitModule(BaseLitModule):
             **self.logging_params,
         )
 
-        # Update metrics, excluding ConfusionMatrixMetric (handled separately)
+        # Update metrics, excluding ConfusionMatrixMetric and NegativeLogLikelihood (handled separately)
         metrics_to_update = {k: v for k, v in self.test_add_metrics.items() 
-                            if not isinstance(v, ConfusionMatrixMetric)}
+                            if not isinstance(v, (ConfusionMatrixMetric, NegativeLogLikelihood))}
         if metrics_to_update:
             from torchmetrics import MetricCollection
             temp_collection = MetricCollection(metrics_to_update)
             temp_collection(preds, targets)
             self.log_dict(temp_collection, **self.logging_params)
         
-        # Update confusion matrix metrics manually (they accumulate during epoch)
+        # Update confusion matrix and NLL metrics manually (they accumulate during epoch)
         for metric_name, metric in self.test_add_metrics.items():
-            if isinstance(metric, ConfusionMatrixMetric):
+            if isinstance(metric, (ConfusionMatrixMetric, NegativeLogLikelihood)):
                 metric.update(preds, targets)
         
         return {'loss': loss}
 
     def on_test_epoch_end(self) -> None:
-        # Compute and log confusion matrix metrics manually
+        # Compute and log confusion matrix and NLL metrics manually
         # (they accumulate predictions during epoch, log in compute())
         for metric_name, metric in self.test_add_metrics.items():
-            if isinstance(metric, ConfusionMatrixMetric):
+            if isinstance(metric, (ConfusionMatrixMetric, NegativeLogLikelihood)):
                 metric.compute()
 
     def predict_step(

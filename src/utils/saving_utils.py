@@ -4,6 +4,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import torch
 from pytorch_lightning import LightningModule, Trainer
 
@@ -123,7 +124,12 @@ def save_predictions_from_dataloader(
             batch_size = len(batch[array_keys[0]])
             for i in range(batch_size):
                 # Process array keys (convert to list)
-                row = {key: batch[key][i].tolist() if hasattr(batch[key][i], 'tolist') else batch[key][i] for key in array_keys}
+                row = {}
+                for key in array_keys:
+                    value = batch[key][i].tolist() if hasattr(batch[key][i], 'tolist') else batch[key][i]
+                    # Rename 'names' to 'path'
+                    row_key = 'path' if key == 'names' else key
+                    row[row_key] = value
                 # Add scalar keys as-is (they're the same for all items in batch)
                 for key in scalar_keys:
                     row[key] = batch[key]
@@ -136,6 +142,42 @@ def save_predictions_from_dataloader(
                 writer.writeheader()
                 writer.writerows(all_rows)
 
+    elif path.suffix == '.parquet':
+        # Collect all rows first
+        all_rows = []
+        for batch in predictions:
+            # Separate scalar keys (like 'fold') from array keys
+            scalar_keys = []
+            array_keys = []
+            for key in batch.keys():
+                value = batch[key]
+                if isinstance(value, (int, float, str, bool)):
+                    scalar_keys.append(key)
+                else:
+                    array_keys.append(key)
+            
+            if not array_keys:
+                # If no array keys, skip this batch
+                continue
+                
+            batch_size = len(batch[array_keys[0]])
+            for i in range(batch_size):
+                # Process array keys (convert to list)
+                row = {}
+                for key in array_keys:
+                    value = batch[key][i].tolist() if hasattr(batch[key][i], 'tolist') else batch[key][i]
+                    # Rename 'names' to 'path'
+                    row_key = 'path' if key == 'names' else key
+                    row[row_key] = value
+                # Add scalar keys as-is (they're the same for all items in batch)
+                for key in scalar_keys:
+                    row[key] = batch[key]
+                all_rows.append(row)
+        
+        if all_rows:
+            df = pd.DataFrame(all_rows)
+            df.to_parquet(path, index=False)
+
     elif path.suffix == '.json':
         processed_predictions = {}
         for batch in predictions:
@@ -143,8 +185,6 @@ def save_predictions_from_dataloader(
             scalar_keys = []
             array_keys = []
             for key in batch.keys():
-                if key == 'names':
-                    continue
                 # Check if it's a scalar (int, float, str) or array-like
                 value = batch[key]
                 if isinstance(value, (int, float, str, bool)):
@@ -159,11 +199,17 @@ def save_predictions_from_dataloader(
             batch_size = len(batch[array_keys[0]])
             for i in range(batch_size):
                 # Process array keys (convert to list)
-                item = {key: batch[key][i].tolist() if hasattr(batch[key][i], 'tolist') else batch[key][i] for key in array_keys}
+                item = {}
+                for key in array_keys:
+                    value = batch[key][i].tolist() if hasattr(batch[key][i], 'tolist') else batch[key][i]
+                    # Rename 'names' to 'path'
+                    item_key = 'path' if key == 'names' else key
+                    item[item_key] = value
                 # Add scalar keys as-is (they're the same for all items in batch)
                 for key in scalar_keys:
                     item[key] = batch[key]
                 
+                # Use path as key if available, otherwise use index
                 if 'names' in batch.keys():
                     processed_predictions[batch['names'][i]] = item
                 else:
@@ -188,7 +234,7 @@ def save_predictions(
 
     :param predictions: Predictions returned by `Trainer.predict` method.
     :param dirname: Dirname for predictions.
-    :param output_format: Output file format. It could be `json` or `csv`.
+    :param output_format: Output file format. It could be `json`, `csv`, or `parquet`.
         Default to `json`.
     """
 
@@ -196,9 +242,9 @@ def save_predictions(
         log.warning('Predictions is empty! Saving was cancelled ...')
         return
 
-    if output_format not in ('json', 'csv'):
+    if output_format not in ('json', 'csv', 'parquet'):
         raise NotImplementedError(
-            f'{output_format} is not implemented! Use `json` or `csv`.'
+            f'{output_format} is not implemented! Use `json`, `csv`, or `parquet`.'
             'Or change `src.utils.saving.save_predictions` func logic.'
         )
 

@@ -9,7 +9,11 @@ from hydra.core.global_hydra import GlobalHydra
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.utilities import FLOAT32_EPSILON, rank_zero_only
-from torchmetrics import ConfusionMatrix as TorchConfusionMatrix, Metric
+from torchmetrics import (
+    AveragePrecision as TorchAveragePrecision,
+    ConfusionMatrix as TorchConfusionMatrix,
+    Metric,
+)
 
 from src.utils.pylogger import get_pylogger
 
@@ -70,29 +74,34 @@ class BalancedAccuracy(Metric):
         """
         cm = self._confusion_matrix.compute()
         
-        # In torchmetrics ConfusionMatrix, cm[i, j] = samples with true label j predicted as i
+        # In torchmetrics ConfusionMatrix, cm[i, j] = samples with true label i predicted as j
+        # (same orientation as sklearn: rows=true, cols=predicted)
         # So for class i:
-        # - TP_i = cm[i, i] (correctly predicted as class i)
-        # - FN_i = sum of all cm[j, i] where j != i (true class i predicted as other classes)
-        # - Total samples of class i = sum(cm[:, i])
-        # - Recall_i = TP_i / (TP_i + FN_i) = cm[i, i] / sum(cm[:, i])
+        # - TP_i = cm[i, i] (true label i predicted as i)
+        # - FN_i = sum of all cm[i, j] where j != i (true label i predicted as other classes)
+        # - Total samples with true label i = sum(cm[i, :]) (sum of row i)
+        # - Recall_i = TP_i / (TP_i + FN_i) = cm[i, i] / sum(cm[i, :])
         
         # Ensure we work with float dtype
         cm_float = cm.float()
-        recalls = torch.zeros(self.num_classes, device=cm.device, dtype=torch.float32)
+        recalls = []
         
+        # Only compute recall for classes that appear in the targets
+        # This matches sklearn's balanced_accuracy_score behavior
         for i in range(self.num_classes):
-            tp = cm_float[i, i]  # True positives for class i
-            total_class_i = cm_float[:, i].sum()  # Total samples of class i
+            total_class_i = cm_float[i, :].sum()  # Total samples with true label i (sum of row i)
             
             if total_class_i > 0:
-                recalls[i] = tp / total_class_i
-            else:
-                # If no samples of this class in the batch, set recall to 0
-                recalls[i] = torch.tensor(0.0, device=cm.device, dtype=torch.float32)
+                tp = cm_float[i, i]  # True positives for class i (true i, predicted i)
+                recall = tp / total_class_i
+                recalls.append(recall)
         
-        # Balanced accuracy is the mean of per-class recalls
-        balanced_acc = recalls.mean()
+        # Balanced accuracy is the mean of per-class recalls (only for classes present)
+        # If no classes are present, return 0
+        if len(recalls) == 0:
+            return torch.tensor(0.0, device=cm.device, dtype=torch.float32)
+        
+        balanced_acc = torch.stack(recalls).mean()
         
         return balanced_acc
 
@@ -266,6 +275,278 @@ class PrecisionAtRecall(Metric):
         return self.correct.float() / (
             self.correct + self.wrong + FLOAT32_EPSILON
         )
+
+
+class MeanAveragePrecision(Metric):
+    """Mean Average Precision (MAP) metric for classification.
+    
+    Mean Average Precision is the mean of Average Precision (AP) across all classes.
+    For multiclass classification, it computes AP for each class independently
+    and then takes the mean. This is also known as macro-averaged AP.
+    
+    Average Precision is the area under the precision-recall curve.
+    """
+
+    def __init__(
+        self,
+        task: str = 'multiclass',
+        num_classes: int = 2,
+        dist_sync_on_step: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize MeanAveragePrecision metric.
+
+        :param task: Task type ('multiclass' or 'binary').
+        :param num_classes: Number of classes.
+        :param dist_sync_on_step: Whether to sync across devices on each step.
+        :param kwargs: Additional keyword arguments passed to torchmetrics.AveragePrecision.
+        """
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.task = task
+        self.num_classes = num_classes
+        
+        # Use torchmetrics AveragePrecision with macro averaging
+        # This computes AP for each class and averages them
+        self._average_precision = TorchAveragePrecision(
+            task=task,
+            num_classes=num_classes,
+            average='macro',
+            **kwargs,
+        )
+
+    def update(self, preds: torch.Tensor, targets: torch.Tensor) -> None:
+        """Update metric state with new predictions and targets.
+
+        :param preds: Predicted class probabilities of shape (N, C) where N is batch size
+            and C is number of classes. For binary classification with task='binary',
+            can also be (N,) with probabilities of positive class.
+        :param targets: True class indices of shape (N,).
+        """
+        # For binary classification, torchmetrics AveragePrecision expects (N,) for preds
+        # Extract positive class probabilities if needed
+        if self.task == 'binary' and preds.ndim > 1 and preds.size(1) == 2:
+            # Extract probabilities of positive class (class 1)
+            preds = preds[:, 1]
+        
+        self._average_precision.update(preds, targets)
+
+    def compute(self) -> torch.Tensor:
+        """Compute mean average precision.
+
+        :return: Mean Average Precision as a scalar tensor.
+        """
+        return self._average_precision.compute()
+
+    def reset(self) -> None:
+        """Reset metric state."""
+        super().reset()
+        self._average_precision.reset()
+
+
+# Alias for convenience
+MAP = MeanAveragePrecision
+
+
+class NegativeLogLikelihood(Metric):
+    """Negative Log Likelihood metric with breakdown by class and prediction correctness.
+    
+    Computes NLL = -log(p(y_true | x)) where p is the predicted probability of the true class.
+    Logs:
+    - NLL_total: Average NLL over all samples
+    - NLL_positive: Average NLL for positive class samples (class 1 for binary, or all classes > 0 for multiclass)
+    - NLL_negative: Average NLL for negative class samples (class 0)
+    - NLL_correct: Average NLL for correctly predicted samples
+    - NLL_incorrect: Average NLL for incorrectly predicted samples
+    """
+
+    def __init__(
+        self,
+        task: str = 'multiclass',
+        num_classes: int = 2,
+        split: str = 'train',
+        dist_sync_on_step: bool = False,
+    ) -> None:
+        """Initialize NegativeLogLikelihood metric.
+
+        :param task: Task type ('multiclass' or 'binary').
+        :param num_classes: Number of classes.
+        :param split: Split name (train/valid/test).
+        :param dist_sync_on_step: Whether to sync across devices on each step.
+        """
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.task = task
+        self.num_classes = num_classes
+        self.split = split
+        
+        # Store predictions and targets as regular lists
+        self.preds: list[torch.Tensor] = []
+        self.targets: list[torch.Tensor] = []
+        
+        # Use weak reference to LightningModule to avoid circular dependency
+        self._lightning_module_ref: ref[Any] | None = None
+
+    def reset(self) -> None:
+        """Reset metric state."""
+        super().reset()
+        self.preds.clear()
+        self.targets.clear()
+
+    def setup_lightning_module(self, lightning_module: Any) -> None:
+        """Set weak reference to LightningModule for accessing trainer and logger.
+
+        :param lightning_module: LightningModule instance.
+        """
+        self._lightning_module_ref = ref(lightning_module)
+    
+    @property
+    def lightning_module(self) -> Any | None:
+        """Get LightningModule instance from weak reference."""
+        if self._lightning_module_ref is None:
+            return None
+        return self._lightning_module_ref()
+
+    def update(self, preds: torch.Tensor, targets: torch.Tensor) -> None:
+        """Update metric with new predictions and targets.
+
+        :param preds: Predicted class probabilities of shape (N, C) or (N,) for binary.
+        :param targets: True class indices of shape (N,).
+        """
+        # Ensure predictions are probabilities in correct format
+        # For binary classification with task='binary', preds might be (N,)
+        # For multiclass or binary with task='multiclass', preds should be (N, C)
+        if preds.ndim == 1:
+            if self.task == 'binary' and self.num_classes == 2:
+                # Binary case: convert (N,) to (N, 2)
+                preds = torch.stack([1 - preds, preds], dim=1)
+            else:
+                # Should not happen, but handle gracefully
+                raise ValueError(f"Unexpected preds shape {preds.shape} for task={self.task}, num_classes={self.num_classes}")
+        elif preds.ndim == 2 and preds.size(1) == 1:
+            # Binary case with (N, 1): convert to (N, 2)
+            if self.task == 'binary' and self.num_classes == 2:
+                preds = torch.cat([1 - preds, preds], dim=1)
+        
+        # Ensure preds sum to 1 (normalize if needed, though they should already be probabilities)
+        # This is a safety check
+        preds_sum = preds.sum(dim=1, keepdim=True)
+        if not torch.allclose(preds_sum, torch.ones_like(preds_sum), atol=1e-3):
+            # Normalize to ensure they sum to 1
+            preds = preds / (preds_sum + 1e-8)
+        
+        # Move to CPU and store
+        preds = preds.detach().cpu()
+        targets = targets.detach().cpu()
+        
+        self.preds.append(preds)
+        self.targets.append(targets)
+
+    @rank_zero_only
+    def compute(self) -> torch.Tensor:
+        """Compute NLL and perform logging.
+
+        :return: Average NLL as a scalar tensor.
+        """
+        if not self.preds or not self.targets:
+            return torch.tensor(0.0)
+        
+        # Concatenate all predictions and targets
+        all_preds = torch.cat(self.preds)
+        all_targets = torch.cat(self.targets)
+        
+        # Ensure on CPU
+        all_preds = all_preds.cpu()
+        all_targets = all_targets.cpu().long()
+        
+        # Compute NLL for each sample: -log(p(y_true | x))
+        # Get probability of true class for each sample
+        probs_true_class = all_preds.gather(1, all_targets.unsqueeze(1)).squeeze(1)
+        # Add small epsilon to avoid log(0)
+        probs_true_class = torch.clamp(probs_true_class, min=1e-8)
+        nll_per_sample = -torch.log(probs_true_class)
+        
+        # Compute overall NLL
+        nll_total = nll_per_sample.mean()
+        
+        # For binary classification: positive = class 1, negative = class 0
+        # For multiclass: positive = classes > 0, negative = class 0
+        if self.num_classes == 2:
+            # Binary case
+            positive_mask = all_targets == 1
+            negative_mask = all_targets == 0
+        else:
+            # Multiclass case: positive = any class > 0
+            positive_mask = all_targets > 0
+            negative_mask = all_targets == 0
+        
+        # Compute NLL for positive and negative samples
+        nll_positive = nll_per_sample[positive_mask].mean() if positive_mask.any() else torch.tensor(0.0)
+        nll_negative = nll_per_sample[negative_mask].mean() if negative_mask.any() else torch.tensor(0.0)
+        
+        # Compute predictions (class indices)
+        pred_classes = all_preds.argmax(dim=1)
+        correct_mask = pred_classes == all_targets
+        incorrect_mask = pred_classes != all_targets
+        
+        # Compute NLL for correct and incorrect predictions
+        nll_correct = nll_per_sample[correct_mask].mean() if correct_mask.any() else torch.tensor(0.0)
+        nll_incorrect = nll_per_sample[incorrect_mask].mean() if incorrect_mask.any() else torch.tensor(0.0)
+        
+        # Log all values
+        if self.lightning_module is not None:
+            logging_params = {
+                'on_step': False,
+                'on_epoch': True,
+                'sync_dist': False,
+                'prog_bar': False,
+            }
+            
+            self.lightning_module.log(
+                f'NLL/{self.split}',
+                nll_total.item(),
+                **logging_params,
+            )
+            self.lightning_module.log(
+                f'NLL_positive/{self.split}',
+                nll_positive.item() if isinstance(nll_positive, torch.Tensor) else nll_positive,
+                **logging_params,
+            )
+            self.lightning_module.log(
+                f'NLL_negative/{self.split}',
+                nll_negative.item() if isinstance(nll_negative, torch.Tensor) else nll_negative,
+                **logging_params,
+            )
+            self.lightning_module.log(
+                f'NLL_correct/{self.split}',
+                nll_correct.item() if isinstance(nll_correct, torch.Tensor) else nll_correct,
+                **logging_params,
+            )
+            self.lightning_module.log(
+                f'NLL_incorrect/{self.split}',
+                nll_incorrect.item() if isinstance(nll_incorrect, torch.Tensor) else nll_incorrect,
+                **logging_params,
+            )
+        
+        # Log to console
+        log.info(f"\n{'='*60}")
+        log.info(f"Negative Log Likelihood - {self.split.upper()}")
+        log.info(f"{'='*60}")
+        log.info(f"NLL (total): {nll_total.item():.4f}")
+        log.info(f"NLL (positive): {nll_positive.item() if isinstance(nll_positive, torch.Tensor) else nll_positive:.4f}")
+        log.info(f"NLL (negative): {nll_negative.item() if isinstance(nll_negative, torch.Tensor) else nll_negative:.4f}")
+        log.info(f"NLL (correct): {nll_correct.item() if isinstance(nll_correct, torch.Tensor) else nll_correct:.4f}")
+        log.info(f"NLL (incorrect): {nll_incorrect.item() if isinstance(nll_incorrect, torch.Tensor) else nll_incorrect:.4f}")
+        log.info(f"{'='*60}\n")
+        
+        # Clear stored predictions and targets
+        self.preds.clear()
+        self.targets.clear()
+        
+        # Return average NLL (main metric value)
+        return nll_total
+
+
+# Alias for convenience
+NLL = NegativeLogLikelihood
 
 
 class ConfusionMatrixMetric(Metric):
