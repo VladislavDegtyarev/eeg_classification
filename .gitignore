@@ -1,5 +1,6 @@
 # Custom
 run.sh
+.DS_store
 
 # Byte-compiled files
 __pycache__/
