@@ -156,11 +156,38 @@ Implement your training logic with LightningModule:
 
 Combines [Hydra](https://github.com/facebookresearch/hydra) and [OmegaConf](https://omegaconf.readthedocs.io/) for flexible, hierarchical configuration:
 
-- Run experiments via `@hydra.main` or Hydra’s Compose API.
+- Run experiments via `@hydra.main` or Hydra's Compose API.
 - Create/instantiate objects from configs using `_target_` and Hydra utils.
 - Override config values from the command line as needed.
 - Support for structured configs, sweepers (Optuna, Nevergrad, Ax), and custom plugins.
 - Built-in custom resolvers for dynamic config expressions, e.g., `${replace:"__metric__/valid"}`.
+
+### Config Override Best Practices
+
+When overriding nested config sections in experiment configs, be aware that Hydra **replaces** entire sections rather than merging them. To avoid conflicts:
+
+1. **Default configs** should avoid including parameters that are specific to certain metric/class types (e.g., `top_k` for Accuracy) if the config might be overridden with different types.
+
+2. **Experiment configs** should explicitly include all necessary parameters when overriding sections. For example:
+   ```yaml
+   metrics:
+     main:
+       _target_: "torchmetrics.AUROC"
+       task: "multiclass"
+       num_classes: ${num_classes}
+       average: "macro"
+       # Don't include top_k here - AUROC doesn't use it
+   ```
+
+3. If using Accuracy, explicitly include `top_k: 1`:
+   ```yaml
+   metrics:
+     main:
+       _target_: "torchmetrics.Accuracy"
+       task: "multiclass"
+       num_classes: ${num_classes}
+       top_k: 1  # Required for Accuracy
+   ```
 
 ---
 
