@@ -1,4 +1,5 @@
 import argparse
+import sys
 import warnings
 from functools import wraps
 from importlib.util import find_spec
@@ -13,7 +14,6 @@ from pytorch_lightning.loggers import Logger
 from pytorch_lightning.utilities import rank_zero_only
 
 from src.modules.losses import load_loss
-from src.modules.metrics import load_metrics
 from src.utils import pylogger, rich_utils
 
 log = pylogger.get_pylogger(__name__)
@@ -329,7 +329,7 @@ def register_custom_resolvers(
 
     # parse additional Hydra's command line flags
     parser = get_args_parser()
-    args, _ = parser.parse_known_args()
+    args, unknown_args = parser.parse_known_args()
     if args.config_path:
         config_path = args.config_path
     if args.config_dir:
@@ -337,16 +337,28 @@ def register_custom_resolvers(
     if args.config_name:
         config_name = args.config_name
 
+    # Extract Hydra overrides from command line arguments
+    # Hydra overrides are positional args that match key=value pattern (e.g., experiment=eeg_classification)
+    # Filter out known flags and extract only Hydra override patterns
+    hydra_overrides = []
+    for arg in unknown_args:
+        # Hydra overrides contain '=' and are not known argparse flags
+        if '=' in arg and not arg.startswith('--'):
+            hydra_overrides.append(arg)
+
     # register of replace resolver
     if not OmegaConf.has_resolver('replace'):
         with initialize_config_dir(
             version_base=version_base, config_dir=config_path
         ):
+            # Compose config with command-line overrides so resolver uses correct metric/loss from experiment config
             cfg = compose(
-                config_name=config_name, return_hydra_config=True, overrides=[]
+                config_name=config_name, return_hydra_config=True, overrides=hydra_overrides
             )
         cfg_tmp = cfg.copy()
         loss = load_loss(cfg_tmp.module.network.loss)
+        # Lazy import to avoid circular dependency
+        from src.modules.metrics import load_metrics
         metric, _, _ = load_metrics(cfg_tmp.module.network.metrics)
         GlobalHydra.instance().clear()
 
