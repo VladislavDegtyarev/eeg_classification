@@ -1,6 +1,6 @@
 # @package _global_
 
-# EEG Classification Experiment Config
+# EEG Classification with Cross-Validation Experiment Config
 # Uses EEG-specific defaults for loaders, transforms, optimizer, scheduler, logging, trainer, callbacks, and logger
 
 defaults:
@@ -15,16 +15,15 @@ defaults:
   - override /hydra: default.yaml
 
 # Task name, determines output directory path
-task_name: "eye-state_classification"
+task_name: "eye-state_classification_cv"
 
 # Tags to help you identify your experiments
-tags: ["eeg", "classification", "eegnet", "v2"]
+tags: ["eeg", "classification", "eegnet", "cv"]
 
 # Set False to skip model training
 train: true
 
 # Evaluate on test set, using best model weights achieved during training
-# Set to false if no test dataset is provided
 test: false
 save_state_dict: true
 
@@ -37,29 +36,45 @@ ckpt_path: null
 # Seed for random number generators in pytorch, numpy and python.random
 seed: 42
 
-# Name of the run, accessed by loggers (includes date)
-name: "eeg-classification_${now:%Y-%m-%d}_${now:%H-%M}"
+# Name of the run, accessed by loggers (includes date and will have _fold suffix for CV)
+name: "eeg-classification-cv_${now:%Y-%m-%d}_${now:%H-%M}"
+
+# Cross-validation configuration
+cv:
+  enabled: true
+  # n_splits: 5  # Ignored for LeaveOneGroupOut
+  strategy: "LeaveOneGroupOut"  # Leave-one-subject-out cross-validation
+  shuffle: false  # Not applicable for LeaveOneGroupOut
+  random_state: 42  # Not applicable for LeaveOneGroupOut
+  group_column: "subject_id"
 
 # Class names for confusion matrix logging
-class_names: ["close", "open"]
+class_names: ["closed", "opened"]
 num_classes: 2
 
 # DataModule configuration
+# Note: datasets.train should point to the COMBINED train+val dataset
+# datasets.valid will be ignored when CV is enabled
 # Uses eeg.yaml defaults for loaders and transforms
 datamodule:
+  _target_: src.datamodules.cv_datamodule.CrossValidationDataModule
+  cv: ${cv}
+
   datasets:
     train:
       _target_: src.datamodules.datasets.ClassificationDataset
-      data_path: ${paths.data_dir}/classification/processed/crops_500_30_v2_train.parquet
+      # IMPORTANT: This should be the combined train+val dataset
+      data_path: ${paths.data_dir}/classification/raw/crops_v2_500hz_30ch_5sec.parquet
       path_column: crop_path
       target_column: target
       read_mode: npy
       include_names: true
       label_type: "torch.LongTensor"
 
+    # valid is ignored when CV is enabled, but kept for compatibility
     valid:
       _target_: src.datamodules.datasets.ClassificationDataset
-      data_path: ${paths.data_dir}/classification/processed/crops_500_30_v2_wo_overlap_valid.parquet
+      data_path: ${paths.data_dir}/classification/raw/crops_v2_500hz_30ch_5sec.parquet
       path_column: crop_path
       target_column: target
       read_mode: npy
@@ -83,23 +98,23 @@ module:
 
     loss:
       _target_: "src.modules.losses.components.focal_loss_with_label_smoothing.FocalLossWithLabelSmoothing"
-      gamma: 3.0
+      gamma: 2.0
       label_smoothing: 0.1
       reduction: "mean"
 
     metrics:
       main:
-        _target_: "src.modules.metrics.components.classification.BalancedAccuracy"
+        _target_: "torchmetrics.AUROC"
         task: "multiclass"
         num_classes: ${num_classes}
+        average: "macro"
       valid_best:
         _target_: "torchmetrics.MaxMetric"
       additional:
-        AUROC:
-          _target_: "torchmetrics.AUROC"
+        BalancedAccuracy:
+          _target_: "src.modules.metrics.components.classification.BalancedAccuracy"
           task: "multiclass"
           num_classes: ${num_classes}
-          average: "macro"
         MAP:
           _target_: "src.modules.metrics.components.classification.MeanAveragePrecision"
           task: "multiclass"
@@ -122,9 +137,10 @@ module:
 
 # Trainer configuration - only experiment-specific overrides
 trainer:
-  max_epochs: 70
+  max_epochs: 10
   accelerator: gpu
   devices: 1
+  num_sanity_val_steps: 0  # Disable sanity checks to prevent Lightning from accessing dataloaders before setup_fold() completes
 
 # Callbacks configuration - only experiment-specific overrides
 callbacks:
@@ -134,3 +150,4 @@ callbacks:
 
   early_stopping:
     monitor: ${replace:"__metric__/valid_epoch"}
+

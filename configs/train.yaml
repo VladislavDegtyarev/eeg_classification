@@ -48,6 +48,9 @@ train: True
 test: True
 save_state_dict: True
 
+# save predictions for train/valid/test dataloaders using best checkpoint
+save_predictions: False
+
 # simply provide checkpoint path to resume training
 ckpt_path: null
 

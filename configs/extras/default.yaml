@@ -17,4 +17,5 @@ state_dict_saving_params:
 
 # predictions
 predictions_saving_params:
-  output_format: "json"
+  output_format: "parquet"
+  dataloaders: ["train", "valid", "test"]  # List of dataloader names to save predictions for

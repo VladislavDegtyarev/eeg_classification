@@ -32,7 +32,7 @@ ckpt_path: null
 # Seed for random number generators in pytorch, numpy and python.random
 seed: 42
 num_classes: 4
-class_names: ['S1', 'S2', 'S3', 'S4']
+class_names: ['close', 'fon', 'own', 'other']
 
 # Name of the run, accessed by loggers (includes date)
 name: "eeg-multiclass-classification_${now:%Y-%m-%d}_${now:%H-%M}"
@@ -43,7 +43,7 @@ datamodule:
   datasets:
     train:
       _target_: src.datamodules.datasets.ClassificationDataset
-      data_path: ${paths.data_dir}/classification/processed/crops_500_30_v1_state_train.parquet
+      data_path: ${paths.data_dir}/classification/processed/crops_500_30_v2_state_train.parquet
       path_column: crop_path
       target_column: target
       read_mode: npy
@@ -52,7 +52,7 @@ datamodule:
 
     valid:
       _target_: src.datamodules.datasets.ClassificationDataset
-      data_path: ${paths.data_dir}/classification/processed/crops_500_30_v1_state_valid.parquet
+      data_path: ${paths.data_dir}/classification/processed/crops_500_30_v2_state_valid.parquet
       path_column: crop_path
       target_column: target
       read_mode: npy
@@ -61,7 +61,7 @@ datamodule:
 
     test:
       _target_: src.datamodules.datasets.ClassificationDataset
-      data_path: ${paths.data_dir}/classification/processed/crops_500_30_v1_state_valid.parquet
+      data_path: ${paths.data_dir}/classification/processed/crops_500_30_v2_state_valid.parquet
       path_column: crop_path
       target_column: target
       read_mode: npy
@@ -87,28 +87,23 @@ module:
 
     metrics:
       main:
-        _target_: "torchmetrics.Accuracy"
+        _target_: "src.modules.metrics.components.classification.MeanAveragePrecision"
         task: "multiclass"
         num_classes: ${num_classes}
-        top_k: 1
       valid_best:
         _target_: "torchmetrics.MaxMetric"
       additional:
-        AUROC:
-          _target_: "torchmetrics.AUROC"
-          task: "multiclass"
-          num_classes: ${num_classes}
-          average: "macro"
+        # Secondary metrics
         F1:
           _target_: "torchmetrics.F1Score"
           task: "multiclass"
           num_classes: ${num_classes}
           average: "macro"
-        Precision:
-          _target_: "torchmetrics.Precision"
+        BalancedAccuracy:
+          _target_: "src.modules.metrics.components.classification.BalancedAccuracy"
           task: "multiclass"
           num_classes: ${num_classes}
-          average: "macro"
+        # Diagnostic metrics
         Recall:
           _target_: "torchmetrics.Recall"
           task: "multiclass"
@@ -120,6 +115,17 @@ module:
           num_classes: ${num_classes}
           class_names: ${class_names}
           split: "train"  # Will be set correctly for each split in single_module
+        NLL:
+          _target_: "src.modules.metrics.components.classification.NegativeLogLikelihood"
+          task: "multiclass"
+          num_classes: ${num_classes}
+          split: "train"  # Will be set correctly for each split in single_module
+        # Optional metrics
+        AUROC:
+          _target_: "torchmetrics.AUROC"
+          task: "multiclass"
+          num_classes: ${num_classes}
+          average: "macro"
 
     output_activation:
       _target_: "torch.softmax"

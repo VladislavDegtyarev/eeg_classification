@@ -18,14 +18,9 @@ metrics:
     _target_: "torchmetrics.Accuracy"
     task: "multiclass"
     num_classes: 2
-    top_k: 1
   valid_best:
     _target_: "torchmetrics.MaxMetric"
-  additional:
-    AUROC:
-      _target_: "torchmetrics.AUROC"
-      task: "multiclass"
-      num_classes: 2
+  additional: {}
 
 output_activation:
   _target_: "torch.softmax"

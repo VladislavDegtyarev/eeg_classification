@@ -9,7 +9,7 @@ defaults:
 # Default optimizer for EEG experiments
 optimizer:
   _target_: torch.optim.AdamW
-  lr: 0.0005
+  lr: 3e-4
   weight_decay: 0.001
   betas: [0.9, 0.999]
   eps: 1.0e-8
@@ -36,4 +36,3 @@ logging:
   prog_bar: true
 
 # class_names and num_classes should be specified per experiment
-
