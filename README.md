@@ -10,7 +10,7 @@ An efficient workflow and results reproducibility are critical for machine learn
 - Build confidence and transparency into your training pipelines.
 - Save developer and compute time.
 
-This repository is based on [PyTorch Lightning](https://github.com/Lightning-AI/lightning) and [Hydra](https://github.com/facebookresearch/hydra), providing a highly modular and extensible foundation for deep learning prototyping across CPUs, multi-GPUs, and TPUs. The template is inspired by and extends the excellent [Lightning Hydra Template](https://github.com/ashleve/lightning-hydra-template), with further polish, features, and improved reproducibility.
+This repository is based on [PyTorch Lightning + Hydra template](https://github.com/gorodnitskiy/yet-another-lightning-hydra-template), providing a highly modular and extensible foundation for deep learning prototyping across CPUs, multi-GPUs, and TPUs.
 
 ### Features
 
@@ -263,7 +263,3 @@ pytest -k "not slow"   # skip slow tests
     - Pre-commit checks for code quality (on main branch and PRs).
 - Easily extensible or portable to GitLab CI (see provided `.gitlab-ci.yml` and docs).
 - Enable GitHub Actions in your repo settings for CI.
-
----
-
-For more information, check the in-code documentation and configs. Contributions and improvements welcome!
